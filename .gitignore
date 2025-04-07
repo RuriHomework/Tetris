@@ -1,0 +1,5 @@
+/build
+/weights
+/.venv
+*.csv
+*.png
