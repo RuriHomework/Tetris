@@ -294,14 +294,12 @@ public:
     // 7. hole_depth (孔深度)
     int hole_depth = 0;
     for (int x = 0; x < BOARD_WIDTH; x++) {
-      int max_hole = 0;
-      int current_h = temp_heights[x];
-      for (int y = current_h - 1; y >= 0; y--) {
-        if (!temp_grid[y][x]) {
-          max_hole = max(max_hole, current_h - y);
+        int current_h = temp_heights[x];
+        for (int y = 0; y < current_h; y++) {
+            if (!temp_grid[y][x]) {
+                hole_depth += (current_h - y);
+            }
         }
-      }
-      hole_depth += max_hole;
     }
     features[6] = hole_depth;
 
