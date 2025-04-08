@@ -137,6 +137,42 @@ public:
     int temp_heights[BOARD_WIDTH];
     memcpy(temp_heights, heights, sizeof(heights));
 
+    int required_y = 0;
+    for (int dx = 0; dx < p.width; dx++) {
+      int col = x + dx;
+      if (col >= BOARD_WIDTH)
+        return make_pair(-1, vector<double>());
+
+      int h_col = temp_heights[col];
+      int max_i_for_dx = 0;
+      bool has_block = false;
+      for (int i = 0; i < p.height; i++) {
+        if (p.shape[i][dx]) {
+          has_block = true;
+          int current_required_y = h_col - i;
+          if (current_required_y > max_i_for_dx) {
+            max_i_for_dx = current_required_y;
+          }
+        }
+      }
+      if (has_block && max_i_for_dx > required_y) {
+        required_y = max_i_for_dx;
+      }
+    }
+
+    vector<pair<int, int>> blocks;
+    for (int i = 0; i < p.height; i++) {
+      for (int j = 0; j < p.width; j++) {
+        if (p.shape[i][j]) {
+          int y = required_y + i;
+          int col = x + j;
+          if (y >= BOARD_HEIGHT || temp_grid[y][col])
+            return make_pair(-1, vector<double>());
+          blocks.push_back(make_pair(y, col));
+        }
+      }
+    }
+
     int max_h = 0;
     for (int dx = 0; dx < p.width; dx++) {
       int col = x + dx;
@@ -144,19 +180,6 @@ public:
         return make_pair(-1, vector<double>());
       if (temp_heights[col] > max_h)
         max_h = temp_heights[col];
-    }
-
-    vector<pair<int, int>> blocks;
-    for (int i = 0; i < p.height; i++) {
-      for (int j = 0; j < p.width; j++) {
-        if (p.shape[i][j]) {
-          int y = max_h + i;
-          int col = x + j;
-          if (y >= BOARD_HEIGHT || temp_grid[y][col])
-            return make_pair(-1, vector<double>());
-          blocks.push_back(make_pair(y, col));
-        }
-      }
     }
 
     for (size_t i = 0; i < blocks.size(); i++) {
@@ -293,12 +316,12 @@ public:
     // 7. hole_depth (孔深度)
     int hole_depth = 0;
     for (int x = 0; x < BOARD_WIDTH; x++) {
-        int current_h = temp_heights[x];
-        for (int y = 0; y < current_h; y++) {
-            if (!temp_grid[y][x]) {
-                hole_depth += (current_h - y);
-            }
+      int current_h = temp_heights[x];
+      for (int y = 0; y < current_h; y++) {
+        if (!temp_grid[y][x]) {
+          hole_depth += (current_h - y);
         }
+      }
     }
     features[6] = hole_depth;
 
@@ -350,40 +373,45 @@ public:
     // 计算最低非空列高度
     int min_h = BOARD_HEIGHT;
     for (int x = 0; x < BOARD_WIDTH; x++) {
-        if (temp_heights[x] > 0 && temp_heights[x] < min_h) {
-            min_h = temp_heights[x];
-        }
+      if (temp_heights[x] > 0 && temp_heights[x] < min_h) {
+        min_h = temp_heights[x];
+      }
     }
     features[19] = (min_h == BOARD_HEIGHT) ? 0 : min_h;
 
     // 计算接近满的行数（差1-2个方块）
     int near_full = 0;
     for (int y = 0; y < BOARD_HEIGHT; y++) {
-        int count = 0;
-        for (int x = 0; x < BOARD_WIDTH; x++) {
-            if (temp_grid[y][x]) count++;
-        }
-        if (count >= BOARD_WIDTH - 2) near_full++;
+      int count = 0;
+      for (int x = 0; x < BOARD_WIDTH; x++) {
+        if (temp_grid[y][x])
+          count++;
+      }
+      if (count >= BOARD_WIDTH - 2)
+        near_full++;
     }
     features[20] = near_full;
 
     int overhangs = 0;
     for (int x = 0; x < BOARD_WIDTH; x++) {
-        bool has_support = true;
-        for (int y = 0; y < BOARD_HEIGHT; y++) {
-            if (temp_grid[y][x]) {
-                if (!has_support) overhangs++;
-                has_support = true;
-            } else {
-                has_support = false;
-            }
+      bool has_support = true;
+      for (int y = 0; y < BOARD_HEIGHT; y++) {
+        if (temp_grid[y][x]) {
+          if (!has_support)
+            overhangs++;
+          has_support = true;
+        } else {
+          has_support = false;
         }
+      }
     }
     features[21] = overhangs;
 
     // 计算消除后的平均高度变化
-    double original_avg = accumulate(heights, heights + BOARD_WIDTH, 0.0) / BOARD_WIDTH;
-    double new_avg = accumulate(temp_heights, temp_heights + BOARD_WIDTH, 0.0) / BOARD_WIDTH;
+    double original_avg =
+        accumulate(heights, heights + BOARD_WIDTH, 0.0) / BOARD_WIDTH;
+    double new_avg =
+        accumulate(temp_heights, temp_heights + BOARD_WIDTH, 0.0) / BOARD_WIDTH;
     features[22] = new_avg - original_avg;
 
     // 紧急情况指标（最高列接近顶部）
@@ -394,21 +422,41 @@ public:
 
   void apply(PieceType type, int x, int rotate) {
     const Piece &p = ROTATIONS[type][rotate];
-    int max_h = 0;
+
+    int required_y = 0;
     for (int dx = 0; dx < p.width; dx++) {
       int col = x + dx;
-      max_h = max(max_h, heights[col]);
+      int h_col = heights[col];
+      int max_i_for_dx = 0;
+      bool has_block = false;
+      for (int i = 0; i < p.height; i++) {
+        if (p.shape[i][dx]) {
+          has_block = true;
+          int current_required_y = h_col - i;
+          if (current_required_y > max_i_for_dx) {
+            max_i_for_dx = current_required_y;
+          }
+        }
+      }
+      if (has_block && max_i_for_dx > required_y) {
+        required_y = max_i_for_dx;
+      }
     }
 
     vector<pair<int, int>> blocks;
     for (int i = 0; i < p.height; i++) {
       for (int j = 0; j < p.width; j++) {
         if (p.shape[i][j]) {
-          int y = max_h + i;
+          int y = required_y + i;
           int col = x + j;
           blocks.push_back(make_pair(y, col));
         }
       }
+    }
+    int max_h = 0;
+    for (int dx = 0; dx < p.width; dx++) {
+      int col = x + dx;
+      max_h = max(max_h, heights[col]);
     }
 
     for (size_t i = 0; i < blocks.size(); i++) {
@@ -648,8 +696,10 @@ private:
     pair<int, int> best_action = {0, 0};
 
     for (const auto &action : actions) {
-      auto [cleared, features] =
+      pair<int, vector<double>> result =
           board.simulate(type, action.second, action.first, weights);
+      int cleared = result.first;
+      vector<double> features = result.second;
       if (cleared == -1)
         continue;
 

@@ -1,5 +1,9 @@
 /build
 /weights
 /.venv
+/.vscode
 *.csv
 *.png
+.cache
+compile_commands.json
+a.out

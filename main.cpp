@@ -137,10 +137,45 @@ public:
 
   pair<int, vector<double>> simulate(PieceType type, int x, int rotate) const {
     const Piece &p = ROTATIONS[type][rotate];
-    bool temp_grid[BOARD_HEIGHT][BOARD_WIDTH];
+    bool temp_grid[20][10];
     memcpy(temp_grid, grid, sizeof(grid));
-    int temp_heights[BOARD_WIDTH];
+    int temp_heights[10];
     memcpy(temp_heights, heights, sizeof(heights));
+
+    int required_y = 0;
+    for (int dx = 0; dx < p.width; dx++) {
+        int col = x + dx;
+        if (col >= 10) return make_pair(-1, vector<double>());
+        int h_col = temp_heights[col];
+        int max_i_for_dx = 0;
+        bool has_block = false;
+        for (int i = 0; i < p.height; i++) {
+            if (p.shape[i][dx]) {
+                has_block = true;
+                int current_required_y = h_col - i;
+                if (current_required_y > max_i_for_dx) {
+                    max_i_for_dx = current_required_y;
+                }
+            }
+        }
+        if (has_block && max_i_for_dx > required_y) {
+            required_y = max_i_for_dx;
+        }
+    }
+
+    vector<pair<int, int>> blocks;
+    for (int i = 0; i < p.height; i++) {
+        for (int j = 0; j < p.width; j++) {
+            if (p.shape[i][j]) {
+                int y = required_y + i;
+                int col = x + j;
+                if (y >= 20 || temp_grid[y][col]) {
+                    return make_pair(-1, vector<double>());
+                }
+                blocks.push_back(make_pair(y, col));
+            }
+        }
+    }
 
     int max_h = 0;
     for (int dx = 0; dx < p.width; dx++) {
@@ -149,19 +184,6 @@ public:
         return make_pair(-1, vector<double>());
       if (temp_heights[col] > max_h)
         max_h = temp_heights[col];
-    }
-
-    vector<pair<int, int>> blocks;
-    for (int i = 0; i < p.height; i++) {
-      for (int j = 0; j < p.width; j++) {
-        if (p.shape[i][j]) {
-          int y = max_h + i;
-          int col = x + j;
-          if (y >= BOARD_HEIGHT || temp_grid[y][col])
-            return make_pair(-1, vector<double>());
-          blocks.push_back(make_pair(y, col));
-        }
-      }
     }
 
     for (size_t i = 0; i < blocks.size(); i++) {
@@ -349,21 +371,40 @@ public:
 
   void apply(PieceType type, int x, int rotate) {
     const Piece &p = ROTATIONS[type][rotate];
-    int max_h = 0;
+    int required_y = 0;
     for (int dx = 0; dx < p.width; dx++) {
-      int col = x + dx;
-      max_h = max(max_h, heights[col]);
+        int col = x + dx;
+        int h_col = heights[col];
+        int max_i_for_dx = 0;
+        bool has_block = false;
+        for (int i = 0; i < p.height; i++) {
+            if (p.shape[i][dx]) {
+                has_block = true;
+                int current_required_y = h_col - i;
+                if (current_required_y > max_i_for_dx) {
+                    max_i_for_dx = current_required_y;
+                }
+            }
+        }
+        if (has_block && max_i_for_dx > required_y) {
+            required_y = max_i_for_dx;
+        }
     }
 
     vector<pair<int, int>> blocks;
     for (int i = 0; i < p.height; i++) {
-      for (int j = 0; j < p.width; j++) {
-        if (p.shape[i][j]) {
-          int y = max_h + i;
-          int col = x + j;
-          blocks.push_back(make_pair(y, col));
+        for (int j = 0; j < p.width; j++) {
+            if (p.shape[i][j]) {
+                int y = required_y + i;
+                int col = x + j;
+                blocks.push_back(make_pair(y, col));
+            }
         }
-      }
+    }
+    int max_h = 0;
+    for (int dx = 0; dx < p.width; dx++) {
+      int col = x + dx;
+      max_h = max(max_h, heights[col]);
     }
 
     for (size_t i = 0; i < blocks.size(); i++) {
