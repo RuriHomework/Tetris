@@ -7,7 +7,7 @@ TARGET_TRAIN = $(BUILD_DIR)/train
 TARGET_MAIN = $(BUILD_DIR)/main
 
 SRC_TRAIN = train.cpp
-SRC_MAIN = main.cpp
+SRC_MAIN = main.c
 
 all: $(BUILD_DIR) $(TARGET_TRAIN) $(TARGET_MAIN)
 
