@@ -12,7 +12,7 @@
 using namespace std;
 
 // 算法参数
-const int FEATURE_DIM = 24;         // 特征维度
+const int FEATURE_DIM = 14;         // 特征维度
 const int POPULATION_SIZE = 210;    // CMA-ES种群大小
 const float SELECTION_RATIO = 0.1f; // 选择比例
 const float NOISE_INTENSITY = 0.1f; // 噪声强度
@@ -357,66 +357,11 @@ public:
     }
     c /= BOARD_WIDTH;
 
-    for (int i = 0; i < 5; i++) {
-      double term = c - (i * h / 4.0);
+    for (int i = 0; i < 4; i++) {
+      double term = c - (i * h / 3.0);
       features[9 + i] = exp(-pow(term, 2) / (2 * pow(h / 5.0, 2)));
     }
 
-    features[14] = (cleared >= 1);
-    features[15] = (cleared >= 2);
-    features[16] = (cleared >= 3);
-    features[17] = (cleared >= 4);
-
-    // 计算最高列高度
-    features[18] = max_h;
-
-    // 计算最低非空列高度
-    int min_h = BOARD_HEIGHT;
-    for (int x = 0; x < BOARD_WIDTH; x++) {
-      if (temp_heights[x] > 0 && temp_heights[x] < min_h) {
-        min_h = temp_heights[x];
-      }
-    }
-    features[19] = (min_h == BOARD_HEIGHT) ? 0 : min_h;
-
-    // 计算接近满的行数（差1-2个方块）
-    int near_full = 0;
-    for (int y = 0; y < BOARD_HEIGHT; y++) {
-      int count = 0;
-      for (int x = 0; x < BOARD_WIDTH; x++) {
-        if (temp_grid[y][x])
-          count++;
-      }
-      if (count >= BOARD_WIDTH - 2)
-        near_full++;
-    }
-    features[20] = near_full;
-
-    int overhangs = 0;
-    for (int x = 0; x < BOARD_WIDTH; x++) {
-      bool has_support = true;
-      for (int y = 0; y < BOARD_HEIGHT; y++) {
-        if (temp_grid[y][x]) {
-          if (!has_support)
-            overhangs++;
-          has_support = true;
-        } else {
-          has_support = false;
-        }
-      }
-    }
-    features[21] = overhangs;
-
-    // 计算消除后的平均高度变化
-    double original_avg =
-        accumulate(heights, heights + BOARD_WIDTH, 0.0) / BOARD_WIDTH;
-    double new_avg =
-        accumulate(temp_heights, temp_heights + BOARD_WIDTH, 0.0) / BOARD_WIDTH;
-    features[22] = new_avg - original_avg;
-
-    // 紧急情况指标（最高列接近顶部）
-    features[23] = (max_h >= BOARD_HEIGHT - 3);
-      
     return make_pair(cleared, features);
   }
 

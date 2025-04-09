@@ -4,26 +4,15 @@
 #include <vector>
 using namespace std;
 
-const int FEATURES = 14;
-const int BOARD_HEIGHT = 20;
+const int FEATURES = 13;
+const int BOARD_HEIGHT = 15;
 const int BOARD_WIDTH = 10;
 
-const double WEIGHTS[] = {
-  -785.366,
-39758.4,
--5707.22,
-2420.21,
--2803.87,
--13750.8,
-1959.47,
--22430.7,
-2508.77,
--7812.77,
--2682.15,
-1803.66,
--806.385,
--16704.9,
-};
+const double WEIGHTS[] = {-1464772.166456, 2535297.130013,  -2638462.645342,
+                          -372351.515440,  1782742.689903,  -1883234.918781,
+                          4420.968667,     -9988776.620538, 948594.666888,
+                          3610431.536749,  -3355542.370633, -1120426.582938,
+                          -3233372.471683};
 
 enum PieceType { I, T, O, J, L, S, Z };
 
@@ -144,37 +133,38 @@ public:
 
     int required_y = 0;
     for (int dx = 0; dx < p.width; dx++) {
-        int col = x + dx;
-        if (col >= 10) return make_pair(-1, vector<double>());
-        int h_col = temp_heights[col];
-        int max_i_for_dx = 0;
-        bool has_block = false;
-        for (int i = 0; i < p.height; i++) {
-            if (p.shape[i][dx]) {
-                has_block = true;
-                int current_required_y = h_col - i;
-                if (current_required_y > max_i_for_dx) {
-                    max_i_for_dx = current_required_y;
-                }
-            }
+      int col = x + dx;
+      if (col >= 10)
+        return make_pair(-1, vector<double>());
+      int h_col = temp_heights[col];
+      int max_i_for_dx = 0;
+      bool has_block = false;
+      for (int i = 0; i < p.height; i++) {
+        if (p.shape[i][dx]) {
+          has_block = true;
+          int current_required_y = h_col - i;
+          if (current_required_y > max_i_for_dx) {
+            max_i_for_dx = current_required_y;
+          }
         }
-        if (has_block && max_i_for_dx > required_y) {
-            required_y = max_i_for_dx;
-        }
+      }
+      if (has_block && max_i_for_dx > required_y) {
+        required_y = max_i_for_dx;
+      }
     }
 
     vector<pair<int, int>> blocks;
     for (int i = 0; i < p.height; i++) {
-        for (int j = 0; j < p.width; j++) {
-            if (p.shape[i][j]) {
-                int y = required_y + i;
-                int col = x + j;
-                if (y >= 20 || temp_grid[y][col]) {
-                    return make_pair(-1, vector<double>());
-                }
-                blocks.push_back(make_pair(y, col));
-            }
+      for (int j = 0; j < p.width; j++) {
+        if (p.shape[i][j]) {
+          int y = required_y + i;
+          int col = x + j;
+          if (y >= 20 || temp_grid[y][col]) {
+            return make_pair(-1, vector<double>());
+          }
+          blocks.push_back(make_pair(y, col));
         }
+      }
     }
 
     int max_h = 0;
@@ -320,12 +310,12 @@ public:
     // 7. hole_depth (孔深度)
     int hole_depth = 0;
     for (int x = 0; x < BOARD_WIDTH; x++) {
-        int current_h = temp_heights[x];
-        for (int y = 0; y < current_h; y++) {
-            if (!temp_grid[y][x]) {
-                hole_depth += (current_h - y);
-            }
+      int current_h = temp_heights[x];
+      for (int y = 0; y < current_h; y++) {
+        if (!temp_grid[y][x]) {
+          hole_depth += (current_h - y);
         }
+      }
     }
     features[6] = hole_depth;
 
@@ -353,17 +343,17 @@ public:
     }
     features[8] = diversity;
 
-    // RBF高度特征（features[9]~features[13]）
+    // RBF高度特征（features[9]~features[12]）
     const int h = BOARD_HEIGHT;
     double c = 0.0;
     for (int x = 0; x < BOARD_WIDTH; x++) {
-        c += temp_heights[x];
+      c += temp_heights[x];
     }
     c /= BOARD_WIDTH;
-    
-    for (int i = 0; i < 5; i++) {
-        double term = c - (i * h / 4.0);
-        features[9 + i] = exp(-pow(term, 2) / (2 * pow(h / 5.0, 2)));
+
+    for (int i = 0; i < 4; i++) {
+      double term = c - (i * h / 3.0);
+      features[9 + i] = exp(-pow(term, 2) / (2 * pow(h / 5.0, 2)));
     }
 
     return make_pair(cleared, features);
@@ -373,33 +363,33 @@ public:
     const Piece &p = ROTATIONS[type][rotate];
     int required_y = 0;
     for (int dx = 0; dx < p.width; dx++) {
-        int col = x + dx;
-        int h_col = heights[col];
-        int max_i_for_dx = 0;
-        bool has_block = false;
-        for (int i = 0; i < p.height; i++) {
-            if (p.shape[i][dx]) {
-                has_block = true;
-                int current_required_y = h_col - i;
-                if (current_required_y > max_i_for_dx) {
-                    max_i_for_dx = current_required_y;
-                }
-            }
+      int col = x + dx;
+      int h_col = heights[col];
+      int max_i_for_dx = 0;
+      bool has_block = false;
+      for (int i = 0; i < p.height; i++) {
+        if (p.shape[i][dx]) {
+          has_block = true;
+          int current_required_y = h_col - i;
+          if (current_required_y > max_i_for_dx) {
+            max_i_for_dx = current_required_y;
+          }
         }
-        if (has_block && max_i_for_dx > required_y) {
-            required_y = max_i_for_dx;
-        }
+      }
+      if (has_block && max_i_for_dx > required_y) {
+        required_y = max_i_for_dx;
+      }
     }
 
     vector<pair<int, int>> blocks;
     for (int i = 0; i < p.height; i++) {
-        for (int j = 0; j < p.width; j++) {
-            if (p.shape[i][j]) {
-                int y = required_y + i;
-                int col = x + j;
-                blocks.push_back(make_pair(y, col));
-            }
+      for (int j = 0; j < p.width; j++) {
+        if (p.shape[i][j]) {
+          int y = required_y + i;
+          int col = x + j;
+          blocks.push_back(make_pair(y, col));
         }
+      }
     }
     int max_h = 0;
     for (int dx = 0; dx < p.width; dx++) {
