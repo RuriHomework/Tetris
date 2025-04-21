@@ -459,21 +459,20 @@ void fRBF(int *temp_heights, SimulateResult *result) {
   }
 }
 
-SimulateResult board_simulate(const Board *board, PieceType type, int x,
-                              int rotate) {
+void board_simulate(const Board *board, PieceType type, int x, int rotate,
+                    SimulateResult *result) {
   const Piece *p = &ROTATIONS[type][rotate];
   bool temp_grid[BOARD_HEIGHT][BOARD_WIDTH];
   memcpy(temp_grid, board->grid, sizeof(board->grid));
   int temp_heights[BOARD_WIDTH];
   memcpy(temp_heights, board->heights, sizeof(board->heights));
 
-  SimulateResult result;
-  result.cleared = -1;
-  memset(result.features, 0, sizeof(result.features));
+  result->cleared = -1;
+  memset(result->features, 0, sizeof(result->features));
 
   int required_y = get_required_y(board, p, x);
   if (required_y == -1)
-    return result;
+    return;
 
   int blocks_count = 0;
   int blocks_y[4 * 4], blocks_col[4 * 4];
@@ -481,15 +480,15 @@ SimulateResult board_simulate(const Board *board, PieceType type, int x,
   update_blocks(&blocks_count, blocks_y, blocks_col, p, x, required_y);
   if (check_blocks_vaild(&blocks_count, blocks_y, blocks_col, p, x, required_y,
                          temp_grid) == -1)
-    return result;
+    return;
 
   if (update_board(blocks_count, blocks_y, blocks_col, temp_grid,
                    temp_heights) == -1)
-    return result;
+    return;
 
   int max_h = get_max_h(temp_heights, x, p->width);
   if (max_h == -1)
-    return result;
+    return;
 
   int full_rows[BOARD_HEIGHT];
   int full_rows_count = get_full_rows(full_rows, temp_grid);
@@ -498,17 +497,17 @@ SimulateResult board_simulate(const Board *board, PieceType type, int x,
                     temp_heights, sizeof(temp_heights));
   }
 
-  result.features[0] = flanding_height(blocks_count, blocks_y);
-  result.features[1] =
+  result->features[0] = flanding_height(blocks_count, blocks_y);
+  result->features[1] =
       feroded_piece_cells(blocks_count, full_rows_count, blocks_y, full_rows);
-  result.features[2] = frow_transitions(temp_grid);
-  result.features[3] = fcolumn_transitions(temp_grid);
-  result.features[4] = fholes(temp_grid);
-  result.features[5] = fboard_wells(temp_heights);
-  result.features[6] = fhole_depth(temp_heights, temp_grid);
-  result.features[7] = frows_with_holes(temp_heights, temp_grid);
-  result.features[8] = fdiversity(temp_heights);
-  result.cleared = full_rows_count;
+  result->features[2] = frow_transitions(temp_grid);
+  result->features[3] = fcolumn_transitions(temp_grid);
+  result->features[4] = fholes(temp_grid);
+  result->features[5] = fboard_wells(temp_heights);
+  result->features[6] = fhole_depth(temp_heights, temp_grid);
+  result->features[7] = frows_with_holes(temp_heights, temp_grid);
+  result->features[8] = fdiversity(temp_heights);
+  result->cleared = full_rows_count;
 
   int add_score = 0;
   switch (full_rows_count) {
@@ -526,11 +525,9 @@ SimulateResult board_simulate(const Board *board, PieceType type, int x,
     break;
   }
 
-  memcpy(result.new_board.grid, temp_grid, sizeof(temp_grid));
-  memcpy(result.new_board.heights, temp_heights, sizeof(temp_heights));
-  result.new_board.score = board->score + add_score;
-
-  return result;
+  memcpy(result->new_board.grid, temp_grid, sizeof(temp_grid));
+  memcpy(result->new_board.heights, temp_heights, sizeof(temp_heights));
+  result->new_board.score = board->score + add_score;
 }
 
 void board_apply(Board *board, PieceType type, int x, int rotate) {
@@ -670,8 +667,10 @@ double evaluate_next_piece(const Board *board, PieceType next_type) {
 
   double max_score = -1e9;
   for (int i = 0; i < next_actions_count; ++i) {
-    SimulateResult sim = board_simulate(board, next_type, next_actions[i].x,
-                                        next_actions[i].rotate);
+    SimulateResult sim;
+
+    board_simulate(board, next_type, next_actions[i].x, next_actions[i].rotate,
+                   &sim);
     if (sim.cleared == -1)
       continue;
 
@@ -700,8 +699,9 @@ Action find_best_action(const Board *board, PieceType current,
   int valid_actions = 0;
 
   for (int i = 0; i < actions_count; ++i) {
-    SimulateResult sim =
-        board_simulate(board, current, actions[i].x, actions[i].rotate);
+    SimulateResult sim;
+
+    board_simulate(board, current, actions[i].x, actions[i].rotate, &sim);
     if (sim.cleared == -1)
       continue;
 
