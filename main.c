@@ -130,6 +130,7 @@ int board_get_height(const Board *board, int col) {
 typedef struct {
   int cleared;
   double features[FEATURES];
+  Board new_board;
 } SimulateResult;
 
 int get_required_y(const Board *board, const Piece *p, int x) {
@@ -437,6 +438,19 @@ SimulateResult board_simulate(const Board *board, PieceType type, int x,
   }
 
   result.cleared = full_rows_count;
+  
+  int add_score = 0;
+  switch (full_rows_count) {
+    case 1: add_score = 100; break;
+    case 2: add_score = 300; break;
+    case 3: add_score = 500; break;
+    case 4: add_score = 800; break;
+  }
+
+  memcpy(result.new_board.grid, temp_grid, sizeof(temp_grid));
+  memcpy(result.new_board.heights, temp_heights, sizeof(temp_heights));
+  result.new_board.score = board->score + add_score;
+
   return result;
 }
 
@@ -562,56 +576,73 @@ void get_possible_actions(const Board *board, PieceType current,
   }
 }
 
-Action find_best_action(const Board *board, PieceType current, 
-                      const Action actions[], int actions_count) {
-  double max_score = -1e9;
-  Action best_action = {0, 0};
-  
-  for (int i = 0; i < actions_count; i++) {
-      int rotate = actions[i].rotate;
-      int x = actions[i].x;
-      SimulateResult sim_result = board_simulate(board, current, x, rotate);
-      
-      if (sim_result.cleared == -1) continue;
-      
-      double score = 0;
-      for (int j = 0; j < FEATURES; j++) {
-          score += sim_result.features[j] * WEIGHTS[j];
-      }
+double evaluate_next_piece(const Board *board, PieceType next_type) {
+  Action next_actions[100];
+  int next_actions_count;
+  get_possible_actions(board, next_type, next_actions, &next_actions_count);
 
-      if (score > max_score || (score == max_score && x < best_action.x)) {
-          max_score = score;
-          best_action.rotate = rotate;
-          best_action.x = x;
-      }
+  double max_score = -1e9;
+  for (int i = 0; i < next_actions_count; ++i) {
+    SimulateResult sim = board_simulate(board, next_type, next_actions[i].x, next_actions[i].rotate);
+    if (sim.cleared == -1) continue;
+
+    double score = 0;
+    for (int j = 0; j < FEATURES; ++j) {
+      score += sim.features[j] * WEIGHTS[j];
+    }
+    if (score > max_score) {
+      max_score = score;
+    }
   }
-  
-  return best_action;
+  return (max_score == -1e9) ? 0 : max_score;
 }
 
-void process_next_piece(Board *board, char next_pieces[], int *next_pieces_count) {
-  if (*next_pieces_count == 0) return;
-  
-  char current_char = next_pieces[0];
-  for (int i = 0; i < *next_pieces_count - 1; i++) {
-      next_pieces[i] = next_pieces[i + 1];
+Action find_best_action(const Board *board, PieceType current, PieceType next_type, const Action actions[], int actions_count) {
+  double max_total = -1e9;
+  Action best = {0, 0};
+
+  for (int i = 0; i < actions_count; ++i) {
+    SimulateResult sim = board_simulate(board, current, actions[i].x, actions[i].rotate);
+    if (sim.cleared == -1) continue;
+
+    double current_score = 0;
+    for (int j = 0; j < FEATURES; ++j) {
+      current_score += sim.features[j] * WEIGHTS[j];
+    }
+
+    double next_score = evaluate_next_piece(&sim.new_board, next_type);
+    double total = current_score + next_score;
+
+    if (total > max_total || (total == max_total && actions[i].x < best.x)) {
+      max_total = total;
+      best = actions[i];
+    }
   }
-  (*next_pieces_count)--;
-  
-  PieceType current = char_to_piece_type(current_char);
-  
-  Action possible_actions[100];
-  int possible_actions_count;
-  get_possible_actions(board, current, possible_actions, &possible_actions_count);
-  
-  if (possible_actions_count == 0) {
-      exit(0);
+
+  return best;
+}
+
+void process_next_piece(Board *board, char next_pieces[], int *count) {
+  if (*count < 2) return;
+
+  PieceType current = char_to_piece_type(next_pieces[0]);
+  PieceType next = char_to_piece_type(next_pieces[1]);
+
+  Action actions[100];
+  int actions_count;
+  get_possible_actions(board, current, actions, &actions_count);
+
+  if (actions_count == 0) exit(0);
+
+  Action best = find_best_action(board, current, next, actions, actions_count);
+  board_apply(board, current, best.x, best.rotate);
+
+  for (int i = 0; i < *count - 1; ++i) {
+    next_pieces[i] = next_pieces[i + 1];
   }
-  
-  Action best_action = find_best_action(board, current, possible_actions, possible_actions_count);
-  board_apply(board, current, best_action.x, best_action.rotate);
-  
-  printf("%d %d\n%d\n", best_action.rotate * 90, best_action.x, board_get_score(board));
+  (*count)--;
+
+  printf("%d %d\n%d\n", best.rotate * 90, best.x, board->score);
   fflush(stdout);
 }
 
