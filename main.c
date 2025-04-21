@@ -265,6 +265,194 @@ void clear_full_rows(int full_rows_count, const int *full_rows,
   }
 }
 
+// -- 特征部分
+
+// landing_height (最高块的y坐标)
+int flanding_height(int blocks_count, int *blocks_y) {
+  int landing_height = 0;
+  for (int i = 0; i < blocks_count; i++) {
+    landing_height =
+        (blocks_y[i] > landing_height) ? blocks_y[i] : landing_height;
+  }
+  return landing_height;
+}
+
+// eroded_piece_cells (消除行中的方块数量×消除行数)
+int feroded_piece_cells(int blocks_count,  int full_rows_count, int *blocks_y, int *full_rows) {
+  int eroded = 0;
+  for (int i = 0; i < blocks_count; i++) {
+    int y = blocks_y[i];
+    for (int j = 0; j < full_rows_count; j++) {
+      if (y == full_rows[j]) {
+        eroded++;
+        break;
+      }
+    }
+  }
+  return eroded*full_rows_count;
+}
+
+// row_transitions (行变换次数)
+int row_trans_table[1024]; // 2^10
+
+void init_row_trans_table() {
+  for (int bits = 0; bits < 1024; bits++) {
+    int prev = 1, cnt = 0;
+    for (int x = 0; x < BOARD_WIDTH; x++) {
+      int curr = (bits >> x) & 1;
+      if (curr != prev) cnt++;
+      prev = curr;
+    }
+    if (prev == 0) cnt++;
+    row_trans_table[bits] = cnt;
+  }
+}
+
+int frow_transitions(bool temp_grid[BOARD_HEIGHT][BOARD_WIDTH]) {
+  static bool initialized = false;
+  if (!initialized) {
+    init_row_trans_table();
+    initialized = true;
+  }
+  int row_trans = 0;
+  for (int y = 0; y < BOARD_HEIGHT; y++) {
+    int row_bits = 0;
+    for (int x = 0; x < BOARD_WIDTH; x++) {
+      row_bits |= (temp_grid[y][x] ? 1 : 0) << x;
+    }
+    row_trans += row_trans_table[row_bits];
+  }
+  return row_trans;
+}
+
+// column_transitions (列变换次数)
+int col_trans_table[32768]; // 2^15
+
+void init_col_trans_table() {
+  for (int bits = 0; bits < 32768; bits++) {
+    int prev = 1, cnt = 0;
+    for (int y = 0; y < BOARD_HEIGHT; y++) {
+      int curr = (bits >> y) & 1;
+      if (curr != prev) cnt++;
+      prev = curr;
+    }
+    if (prev == 0) cnt++;
+    col_trans_table[bits] = cnt;
+  }
+}
+
+int fcolumn_transitions(bool temp_grid[BOARD_HEIGHT][BOARD_WIDTH]) {
+  static bool initialized = false;
+  if (!initialized) {
+    init_col_trans_table();
+    initialized = true;
+  }
+  int col_trans = 0;
+  for (int x = 0; x < BOARD_WIDTH; x++) {
+    int col_bits = 0;
+    for (int y = 0; y < BOARD_HEIGHT; y++) {
+      col_bits |= (temp_grid[y][x] ? 1 : 0) << y;
+    }
+    col_trans += col_trans_table[col_bits];
+  }
+  return col_trans;
+}
+
+// holes (空洞数量)
+int fholes(bool temp_grid[BOARD_HEIGHT][BOARD_WIDTH]) {
+  int holes = 0;
+  for (int x = 0; x < BOARD_WIDTH; x++) {
+    int top = -1;
+    int col_holes = 0;
+    for (int y = BOARD_HEIGHT - 1; y >= 0; y--) {
+      if (temp_grid[y][x]) {
+        top = y;
+      } else {
+        if (top != -1) {
+          col_holes++;
+        }
+      }
+    }
+    holes += col_holes;
+  }
+  return holes;
+}
+
+// board_wells (井深)
+int fboard_wells(int *temp_heights) {
+  int wells = 0;
+  for (int x = 0; x < BOARD_WIDTH; x++) {
+    int left = (x > 0) ? temp_heights[x - 1] : temp_heights[x];
+    int right = (x < BOARD_WIDTH - 1) ? temp_heights[x + 1] : temp_heights[x];
+    int current = temp_heights[x];
+    if (current < left && current < right) {
+      wells += ((left < right) ? left : right) - current;
+    }
+  }
+  return wells;
+}
+
+// hole_depth (孔深度)
+int fhole_depth(int *temp_heights, bool temp_grid[BOARD_HEIGHT][BOARD_WIDTH]) {
+  int hole_depth = 0;
+  for (int x = 0; x < BOARD_WIDTH; x++) {
+    int current_h = temp_heights[x];
+    for (int y = 0; y < current_h; y++) {
+      if (!temp_grid[y][x]) {
+        hole_depth += (current_h - y);
+      }
+    }
+  }
+  return hole_depth;
+}
+
+// rows_with_holes (包含空洞的行数)
+int frows_with_holes(int *temp_heights, bool temp_grid[BOARD_HEIGHT][BOARD_WIDTH]) {
+  bool has_hole_per_row[BOARD_HEIGHT] = {false};
+  for (int x = 0; x < BOARD_WIDTH; x++) {
+    int current_h = temp_heights[x];
+    for (int y = 0; y < current_h; y++) {
+      if (!temp_grid[y][x]) {
+        has_hole_per_row[y] = true;
+      }
+    }
+  }
+  int rows_with_holes = 0;
+  for (int y = 0; y < BOARD_HEIGHT; y++) {
+    if (has_hole_per_row[y]) {
+      rows_with_holes++;
+    }
+  }
+  return rows_with_holes;
+}
+
+// diversity (行高度差异)
+double fdiversity(int *temp_heights) {
+  double diversity = 0;
+  int prev_h = temp_heights[0];
+  for (int x = 1; x < BOARD_WIDTH; x++) {
+    diversity += abs(temp_heights[x] - prev_h);
+    prev_h = temp_heights[x];
+  }
+  return diversity;
+}
+
+
+ // RBF高度特征（features[9]~features[12]）
+void fRBF(int *temp_heights, SimulateResult *result) {
+  const int h = BOARD_HEIGHT;
+  double c = 0.0;
+  for (int x = 0; x < BOARD_WIDTH; x++) {
+    c += temp_heights[x];
+  }
+  c /= BOARD_WIDTH;
+
+  for (int i = 0; i < 4; i++) {
+    double term = c - (i * h / 3.0);
+    result->features[9 + i] = exp(-pow(term, 2) / (2 * pow(h / 5.0, 2)));
+  }
+}
+
 SimulateResult board_simulate(const Board *board, PieceType type, int x,
                               int rotate) {
   const Piece *p = &ROTATIONS[type][rotate];
@@ -304,139 +492,15 @@ SimulateResult board_simulate(const Board *board, PieceType type, int x,
                     temp_heights, sizeof(temp_heights));
   }
 
-  // 1. landing_height (最高块的y坐标)
-  int landing_height = 0;
-  for (int i = 0; i < blocks_count; i++) {
-    landing_height =
-        (blocks_y[i] > landing_height) ? blocks_y[i] : landing_height;
-  }
-  result.features[0] = landing_height;
-
-  // 2. eroded_piece_cells (消除行中的方块数量×消除行数)
-  int eroded = 0;
-  for (int i = 0; i < blocks_count; i++) {
-    int y = blocks_y[i];
-    for (int j = 0; j < full_rows_count; j++) {
-      if (y == full_rows[j]) {
-        eroded++;
-        break;
-      }
-    }
-  }
-  result.features[1] = eroded * full_rows_count;
-
-  // 3. row_transitions (行变换次数)
-  int row_trans = 0;
-  for (int y = 0; y < BOARD_HEIGHT; y++) {
-    int prev = 1, cnt = 0;
-    for (int x = 0; x < BOARD_WIDTH; x++) {
-      int curr = temp_grid[y][x] ? 1 : 0;
-      if (curr != prev)
-        cnt++;
-      prev = curr;
-    }
-    if (prev == 0)
-      cnt++;
-    row_trans += cnt;
-  }
-  result.features[2] = row_trans;
-
-  // 4. column_transitions (列变换次数)
-  int col_trans = 0;
-  for (int x = 0; x < BOARD_WIDTH; x++) {
-    int prev = 1, cnt = 0;
-    for (int y = 0; y < BOARD_HEIGHT; y++) {
-      int curr = temp_grid[y][x] ? 1 : 0;
-      if (curr != prev)
-        cnt++;
-      prev = curr;
-    }
-    if (prev == 0)
-      cnt++;
-    col_trans += cnt;
-  }
-  result.features[3] = col_trans;
-
-  // 5. holes (空洞数量)
-  int holes = 0;
-  for (int x = 0; x < BOARD_WIDTH; x++) {
-    int top = -1;
-    for (int y = BOARD_HEIGHT - 1; y >= 0; y--) {
-      if (temp_grid[y][x]) {
-        top = y;
-        break;
-      }
-    }
-    if (top == -1)
-      continue;
-    for (int y = 0; y < top; y++) {
-      if (!temp_grid[y][x])
-        holes++;
-    }
-  }
-  result.features[4] = holes;
-
-  // 6. board_wells (井深)
-  int wells = 0;
-  for (int x = 0; x < BOARD_WIDTH; x++) {
-    int left = (x > 0) ? temp_heights[x - 1] : temp_heights[x];
-    int right = (x < BOARD_WIDTH - 1) ? temp_heights[x + 1] : temp_heights[x];
-    int current = temp_heights[x];
-    if (current < left && current < right) {
-      wells += ((left < right) ? left : right) - current;
-    }
-  }
-  result.features[5] = wells;
-
-  // 7. hole_depth (孔深度)
-  int hole_depth = 0;
-  for (int x = 0; x < BOARD_WIDTH; x++) {
-    int current_h = temp_heights[x];
-    for (int y = 0; y < current_h; y++) {
-      if (!temp_grid[y][x]) {
-        hole_depth += (current_h - y);
-      }
-    }
-  }
-  result.features[6] = hole_depth;
-
-  // 8. rows_with_holes (包含空洞的行数)
-  int rows_with_holes = 0;
-  for (int y = 0; y < BOARD_HEIGHT; y++) {
-    bool has_hole = false;
-    for (int x = 0; x < BOARD_WIDTH; x++) {
-      if (!temp_grid[y][x] && temp_heights[x] > y) {
-        has_hole = true;
-        break;
-      }
-    }
-    if (has_hole)
-      rows_with_holes++;
-  }
-  result.features[7] = rows_with_holes;
-
-  // 9. diversity (行高度差异)
-  double diversity = 0;
-  int prev_h = temp_heights[0];
-  for (int x = 1; x < BOARD_WIDTH; x++) {
-    diversity += abs(temp_heights[x] - prev_h);
-    prev_h = temp_heights[x];
-  }
-  result.features[8] = diversity;
-
-  // RBF高度特征（features[9]~features[12]）
-  const int h = BOARD_HEIGHT;
-  double c = 0.0;
-  for (int x = 0; x < BOARD_WIDTH; x++) {
-    c += temp_heights[x];
-  }
-  c /= BOARD_WIDTH;
-
-  for (int i = 0; i < 4; i++) {
-    double term = c - (i * h / 3.0);
-    result.features[9 + i] = exp(-pow(term, 2) / (2 * pow(h / 5.0, 2)));
-  }
-
+  result.features[0] = flanding_height(blocks_count, blocks_y);
+  result.features[1] = feroded_piece_cells(blocks_count, full_rows_count, blocks_y, full_rows);
+  result.features[2] = frow_transitions(temp_grid);
+  result.features[3] = fcolumn_transitions(temp_grid);
+  result.features[4] = fholes(temp_grid);
+  result.features[5] = fboard_wells(temp_heights);
+  result.features[6] = fhole_depth(temp_heights, temp_grid);
+  result.features[7] = frows_with_holes(temp_heights, temp_grid);
+  result.features[8] = fdiversity(temp_heights);
   result.cleared = full_rows_count;
   
   int add_score = 0;
