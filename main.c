@@ -153,41 +153,111 @@ int get_required_y(const Board *board, const Piece *p, int x) {
   return required_y;
 }
 
-int get_max_h(const int *temp_heights,int start_x, int piece_weight) {
+int get_max_h(const int *heights, int start_x, int piece_weight) {
   int max_h = 0;
   for (int dx = 0; dx < piece_weight; dx++) {
     int col = start_x + dx;
     if (col >= BOARD_WIDTH)
       return -1;
-    if (temp_heights[col] > max_h)
-      max_h = temp_heights[col];
+    if (heights[col] > max_h)
+      max_h = heights[col];
   }
   return max_h;
 }
 
-int update_temp_board(int *blocks_count, int blocks_y[], int blocks_col[], bool temp_grid[BOARD_HEIGHT][BOARD_WIDTH], int *temp_heights, const Piece *p, int start_x, int required_y ) {
+void update_blocks(int *blocks_count, int blocks_y[], int blocks_col[],
+                   const Piece *p, int start_x, int required_y) {
   for (int i = 0; i < p->height; i++) {
     for (int j = 0; j < p->width; j++) {
       if (p->shape[i][j]) {
         int y = required_y + i;
         int col = start_x + j;
-        if (y >= BOARD_HEIGHT || temp_grid[y][col]) {
-          return -1;
-        }
         blocks_y[*blocks_count] = y;
         blocks_col[*blocks_count] = col;
         (*blocks_count)++;
       }
     }
   }
+}
 
-  for (int i = 0; i < *blocks_count; i++) {
-    int y = blocks_y[i];
-    int col = blocks_col[i];
-    temp_grid[y][col] = true;
-    temp_heights[col] = (temp_heights[col] > y + 1) ? temp_heights[col] : y + 1;
+int check_blocks_vaild(int *blocks_count, int blocks_y[], int blocks_col[],
+                       const Piece *p, int start_x, int required_y,
+                       bool grid[BOARD_HEIGHT][BOARD_WIDTH]) {
+  for (int i = 0; i < p->height; i++) {
+    for (int j = 0; j < p->width; j++) {
+      if (p->shape[i][j]) {
+        int y = required_y + i;
+        int col = start_x + j;
+        if (y >= BOARD_HEIGHT || grid[y][col]) {
+          return -1;
+        }
+      }
+    }
   }
   return 0;
+}
+
+int update_board(int blocks_count, int blocks_y[], int blocks_col[],
+                 bool grid[BOARD_HEIGHT][BOARD_WIDTH], int heights[]) {
+  for (int i = 0; i < blocks_count; i++) {
+    int y = blocks_y[i];
+    int col = blocks_col[i];
+    grid[y][col] = true;
+    heights[col] = (heights[col] > y + 1) ? heights[col] : y + 1;
+  }
+  return 0;
+}
+
+int get_full_rows(int full_rows[BOARD_HEIGHT],
+                  const bool temp_grid[BOARD_HEIGHT][BOARD_WIDTH]) {
+  int full_rows_count = 0;
+  for (int y = 0; y < BOARD_HEIGHT; y++) {
+    bool full = true;
+    for (int x = 0; x < BOARD_WIDTH; x++) {
+      if (!temp_grid[y][x]) {
+        full = false;
+        break;
+      }
+    }
+    if (full)
+      full_rows[full_rows_count++] = y;
+  }
+  return full_rows_count;
+}
+
+void clear_full_rows(int full_rows_count, const int *full_rows,
+                     bool grid[BOARD_HEIGHT][BOARD_WIDTH], int grid_size,
+                     int heights[BOARD_WIDTH], int heights_size) {
+  bool new_grid[BOARD_HEIGHT][BOARD_WIDTH] = {{false}};
+  int shift = 0;
+  for (int y = 0; y < BOARD_HEIGHT; y++) {
+    bool is_full = false;
+    for (int j = 0; j < full_rows_count; j++) {
+      if (y == full_rows[j]) {
+        is_full = true;
+        break;
+      }
+    }
+    if (is_full) {
+      shift++;
+      continue;
+    }
+    int new_y = y - shift;
+    if (new_y >= 0 && new_y < BOARD_HEIGHT) {
+      memcpy(new_grid[new_y], grid[y], sizeof(grid[y]));
+    }
+  }
+  memcpy(grid, new_grid, grid_size);
+
+  memset(heights, 0, heights_size);
+  for (int x = 0; x < BOARD_WIDTH; x++) {
+    for (int y = BOARD_HEIGHT - 1; y >= 0; y--) {
+      if (grid[y][x]) {
+        heights[x] = y + 1;
+        break;
+      }
+    }
+  }
 }
 
 SimulateResult board_simulate(const Board *board, PieceType type, int x,
@@ -203,61 +273,30 @@ SimulateResult board_simulate(const Board *board, PieceType type, int x,
   memset(result.features, 0, sizeof(result.features));
 
   int required_y = get_required_y(board, p, x);
-  if (required_y == -1) return result;
+  if (required_y == -1)
+    return result;
 
   int blocks_count = 0;
   int blocks_y[4 * 4], blocks_col[4 * 4];
-  int res = update_temp_board(&blocks_count, blocks_y, blocks_col, temp_grid, temp_heights, p, x, required_y);
-  if (res == -1) return result;
+
+  update_blocks(&blocks_count, blocks_y, blocks_col, p, x, required_y);
+  if (check_blocks_vaild(&blocks_count, blocks_y, blocks_col, p, x, required_y,
+                         temp_grid) == -1)
+    return result;
+
+  if (update_board(blocks_count, blocks_y, blocks_col, temp_grid,
+                   temp_heights) == -1)
+    return result;
 
   int max_h = get_max_h(temp_heights, x, p->width);
-  if (max_h == -1) return result;
+  if (max_h == -1)
+    return result;
 
   int full_rows[BOARD_HEIGHT];
-  int full_rows_count = 0;
-  for (int y = 0; y < BOARD_HEIGHT; y++) {
-    bool full = true;
-    for (int x = 0; x < BOARD_WIDTH; x++) {
-      if (!temp_grid[y][x]) {
-        full = false;
-        break;
-      }
-    }
-    if (full)
-      full_rows[full_rows_count++] = y;
-  }
-  int cleared = full_rows_count;
-
-  if (cleared > 0) {
-    bool new_grid[BOARD_HEIGHT][BOARD_WIDTH] = {{false}};
-    int shift = 0;
-    for (int y = BOARD_HEIGHT - 1; y >= 0; y--) {
-      if (shift < full_rows_count &&
-          y == full_rows[full_rows_count - 1 - shift]) {
-        shift++;
-        continue;
-      }
-      int new_y = y + shift;
-      if (new_y < BOARD_HEIGHT) {
-        memcpy(new_grid[new_y], temp_grid[y], sizeof(temp_grid[y]));
-      }
-    }
-    memcpy(temp_grid, new_grid, sizeof(temp_grid));
-
-    memset(temp_heights, 0, sizeof(temp_heights));
-    for (int x = 0; x < BOARD_WIDTH; x++) {
-      for (int y = BOARD_HEIGHT - 1; y >= 0; y--) {
-        if (temp_grid[y][x]) {
-          temp_heights[x] = y + 1;
-          break;
-        }
-      }
-    }
-  }
-
-  if (blocks_count == 0) {
-    result.cleared = cleared;
-    return result;
+  int full_rows_count = get_full_rows(full_rows, temp_grid);
+  if (full_rows_count > 0) {
+    clear_full_rows(full_rows_count, full_rows, temp_grid, sizeof(temp_grid),
+                    temp_heights, sizeof(temp_heights));
   }
 
   // 1. landing_height (最高块的y坐标)
@@ -279,7 +318,7 @@ SimulateResult board_simulate(const Board *board, PieceType type, int x,
       }
     }
   }
-  result.features[1] = eroded * cleared;
+  result.features[1] = eroded * full_rows_count;
 
   // 3. row_transitions (行变换次数)
   int row_trans = 0;
@@ -393,106 +432,25 @@ SimulateResult board_simulate(const Board *board, PieceType type, int x,
     result.features[9 + i] = exp(-pow(term, 2) / (2 * pow(h / 5.0, 2)));
   }
 
-  result.cleared = cleared;
+  result.cleared = full_rows_count;
   return result;
 }
 
 void board_apply(Board *board, PieceType type, int x, int rotate) {
   const Piece *p = &ROTATIONS[type][rotate];
-  int required_y = 0;
-  for (int dx = 0; dx < p->width; dx++) {
-    int col = x + dx;
-    int h_col = board->heights[col];
-    int max_i_for_dx = 0;
-    bool has_block = false;
-    for (int i = 0; i < p->height; i++) {
-      if (p->shape[i][dx]) {
-        has_block = true;
-        int current_required_y = h_col - i;
-        if (current_required_y > max_i_for_dx) {
-          max_i_for_dx = current_required_y;
-        }
-      }
-    }
-    if (has_block && max_i_for_dx > required_y) {
-      required_y = max_i_for_dx;
-    }
-  }
+  int required_y = get_required_y(board, p, x);
 
   int blocks_count = 0;
-  int blocks_y[4 * 4], blocks_col[4 * 4]; // 最多4*4个方块
-
-  for (int i = 0; i < p->height; i++) {
-    for (int j = 0; j < p->width; j++) {
-      if (p->shape[i][j]) {
-        int y = required_y + i;
-        int col = x + j;
-        blocks_y[blocks_count] = y;
-        blocks_col[blocks_count] = col;
-        blocks_count++;
-      }
-    }
-  }
-
-  int max_h = 0;
-  for (int dx = 0; dx < p->width; dx++) {
-    int col = x + dx;
-    max_h = (board->heights[col] > max_h) ? board->heights[col] : max_h;
-  }
-
-  for (int i = 0; i < blocks_count; i++) {
-    int y = blocks_y[i];
-    int col = blocks_col[i];
-    board->grid[y][col] = true;
-    board->heights[col] =
-        (board->heights[col] > y + 1) ? board->heights[col] : y + 1;
-  }
+  int blocks_y[4 * 4], blocks_col[4 * 4];
+  update_blocks(&blocks_count, blocks_y, blocks_col, p, x, required_y);
+  update_board(blocks_count, blocks_y, blocks_col, board->grid, board->heights);
 
   int full_rows[BOARD_HEIGHT];
-  int full_rows_count = 0;
-  for (int y = 0; y < BOARD_HEIGHT; y++) {
-    bool full = true;
-    for (int x = 0; x < BOARD_WIDTH; x++) {
-      if (!board->grid[y][x]) {
-        full = false;
-        break;
-      }
-    }
-    if (full)
-      full_rows[full_rows_count++] = y;
-  }
-
+  int full_rows_count = get_full_rows(full_rows, board->grid);
   if (full_rows_count > 0) {
-    bool new_grid[BOARD_HEIGHT][BOARD_WIDTH] = {{false}};
-    int shift = 0;
-    for (int y = 0; y < BOARD_HEIGHT; y++) {
-      bool is_full = false;
-      for (int j = 0; j < full_rows_count; j++) {
-        if (y == full_rows[j]) {
-          is_full = true;
-          break;
-        }
-      }
-      if (is_full) {
-        shift++;
-        continue;
-      }
-      int new_y = y - shift;
-      if (new_y >= 0 && new_y < BOARD_HEIGHT) {
-        memcpy(new_grid[new_y], board->grid[y], sizeof(board->grid[y]));
-      }
-    }
-    memcpy(board->grid, new_grid, sizeof(board->grid));
-
-    memset(board->heights, 0, sizeof(board->heights));
-    for (int x = 0; x < BOARD_WIDTH; x++) {
-      for (int y = BOARD_HEIGHT - 1; y >= 0; y--) {
-        if (board->grid[y][x]) {
-          board->heights[x] = y + 1;
-          break;
-        }
-      }
-    }
+    clear_full_rows(full_rows_count, full_rows, board->grid,
+                    sizeof(board->grid), board->heights,
+                    sizeof(board->heights));
     int add_score = 0;
     switch (full_rows_count) {
     case 1:
