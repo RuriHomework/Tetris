@@ -9,6 +9,7 @@
 #define FEATURES 13
 #define BOARD_HEIGHT 15
 #define BOARD_WIDTH 10
+#define TOP_N 5
 
 const double WEIGHTS[] = {-1464772.166456, 2535297.130013,  -2638462.645342,
                           -372351.515440,  1782742.689903,  -1883234.918781,
@@ -278,7 +279,8 @@ int flanding_height(int blocks_count, int *blocks_y) {
 }
 
 // eroded_piece_cells (消除行中的方块数量×消除行数)
-int feroded_piece_cells(int blocks_count,  int full_rows_count, int *blocks_y, int *full_rows) {
+int feroded_piece_cells(int blocks_count, int full_rows_count, int *blocks_y,
+                        int *full_rows) {
   int eroded = 0;
   for (int i = 0; i < blocks_count; i++) {
     int y = blocks_y[i];
@@ -289,7 +291,7 @@ int feroded_piece_cells(int blocks_count,  int full_rows_count, int *blocks_y, i
       }
     }
   }
-  return eroded*full_rows_count;
+  return eroded * full_rows_count;
 }
 
 // row_transitions (行变换次数)
@@ -300,10 +302,12 @@ void init_row_trans_table() {
     int prev = 1, cnt = 0;
     for (int x = 0; x < BOARD_WIDTH; x++) {
       int curr = (bits >> x) & 1;
-      if (curr != prev) cnt++;
+      if (curr != prev)
+        cnt++;
       prev = curr;
     }
-    if (prev == 0) cnt++;
+    if (prev == 0)
+      cnt++;
     row_trans_table[bits] = cnt;
   }
 }
@@ -333,10 +337,12 @@ void init_col_trans_table() {
     int prev = 1, cnt = 0;
     for (int y = 0; y < BOARD_HEIGHT; y++) {
       int curr = (bits >> y) & 1;
-      if (curr != prev) cnt++;
+      if (curr != prev)
+        cnt++;
       prev = curr;
     }
-    if (prev == 0) cnt++;
+    if (prev == 0)
+      cnt++;
     col_trans_table[bits] = cnt;
   }
 }
@@ -407,7 +413,8 @@ int fhole_depth(int *temp_heights, bool temp_grid[BOARD_HEIGHT][BOARD_WIDTH]) {
 }
 
 // rows_with_holes (包含空洞的行数)
-int frows_with_holes(int *temp_heights, bool temp_grid[BOARD_HEIGHT][BOARD_WIDTH]) {
+int frows_with_holes(int *temp_heights,
+                     bool temp_grid[BOARD_HEIGHT][BOARD_WIDTH]) {
   bool has_hole_per_row[BOARD_HEIGHT] = {false};
   for (int x = 0; x < BOARD_WIDTH; x++) {
     int current_h = temp_heights[x];
@@ -437,8 +444,7 @@ double fdiversity(int *temp_heights) {
   return diversity;
 }
 
-
- // RBF高度特征（features[9]~features[12]）
+// RBF高度特征（features[9]~features[12]）
 void fRBF(int *temp_heights, SimulateResult *result) {
   const int h = BOARD_HEIGHT;
   double c = 0.0;
@@ -493,7 +499,8 @@ SimulateResult board_simulate(const Board *board, PieceType type, int x,
   }
 
   result.features[0] = flanding_height(blocks_count, blocks_y);
-  result.features[1] = feroded_piece_cells(blocks_count, full_rows_count, blocks_y, full_rows);
+  result.features[1] =
+      feroded_piece_cells(blocks_count, full_rows_count, blocks_y, full_rows);
   result.features[2] = frow_transitions(temp_grid);
   result.features[3] = fcolumn_transitions(temp_grid);
   result.features[4] = fholes(temp_grid);
@@ -502,13 +509,21 @@ SimulateResult board_simulate(const Board *board, PieceType type, int x,
   result.features[7] = frows_with_holes(temp_heights, temp_grid);
   result.features[8] = fdiversity(temp_heights);
   result.cleared = full_rows_count;
-  
+
   int add_score = 0;
   switch (full_rows_count) {
-    case 1: add_score = 100; break;
-    case 2: add_score = 300; break;
-    case 3: add_score = 500; break;
-    case 4: add_score = 800; break;
+  case 1:
+    add_score = 100;
+    break;
+  case 2:
+    add_score = 300;
+    break;
+  case 3:
+    add_score = 500;
+    break;
+  case 4:
+    add_score = 800;
+    break;
   }
 
   memcpy(result.new_board.grid, temp_grid, sizeof(temp_grid));
@@ -585,58 +600,66 @@ void read_initial_pieces(char next_pieces[], int *next_pieces_count) {
 
 PieceType char_to_piece_type(char c) {
   switch (c) {
-      case 'I': return I;
-      case 'T': return T;
-      case 'O': return O;
-      case 'J': return J;
-      case 'L': return L;
-      case 'S': return S;
-      case 'Z': return Z;
-      default: exit(0);
+  case 'I':
+    return I;
+  case 'T':
+    return T;
+  case 'O':
+    return O;
+  case 'J':
+    return J;
+  case 'L':
+    return L;
+  case 'S':
+    return S;
+  case 'Z':
+    return Z;
+  default:
+    exit(0);
   }
 }
 
 bool is_position_valid(const Board *board, const Piece *p, int x) {
   for (int dx = 0; dx < p->width; dx++) {
-      int col = x + dx;
-      if (col >= BOARD_WIDTH) {
-          return false;
-      }
+    int col = x + dx;
+    if (col >= BOARD_WIDTH) {
+      return false;
+    }
   }
-  
+
   int max_h = 0;
   for (int dx = 0; dx < p->width; dx++) {
-      int col = x + dx;
-      int h = board_get_height(board, col);
-      max_h = (h > max_h) ? h : max_h;
+    int col = x + dx;
+    int h = board_get_height(board, col);
+    max_h = (h > max_h) ? h : max_h;
   }
 
   for (int i = 0; i < p->height; i++) {
-      for (int j = 0; j < p->width; j++) {
-          if (p->shape[i][j]) {
-              int y = max_h + i;
-              if (y >= BOARD_HEIGHT) {
-                  return false;
-              }
-          }
+    for (int j = 0; j < p->width; j++) {
+      if (p->shape[i][j]) {
+        int y = max_h + i;
+        if (y >= BOARD_HEIGHT) {
+          return false;
+        }
       }
+    }
   }
   return true;
 }
 
-void get_possible_actions(const Board *board, PieceType current, 
-                       Action actions[], int *actions_count) {
+void get_possible_actions(const Board *board, PieceType current,
+                          Action actions[], int *actions_count) {
   *actions_count = 0;
-  
+
   for (int rotate = 0; rotate < 4; rotate++) {
-      const Piece *p = &ROTATIONS[current][rotate];
-      for (int x = 0; x <= BOARD_WIDTH - p->width; x++) {
-          if (is_position_valid(board, p, x)) {
-              actions[*actions_count].rotate = rotate;
-              actions[*actions_count].x = x;
-              (*actions_count)++;
-          }
+    const Piece *p = &ROTATIONS[current][rotate];
+    for (int x = 0; x <= BOARD_WIDTH - p->width; x++) {
+      if (is_position_valid(board, p, x)) {
+        actions[*actions_count].rotate = rotate;
+        actions[*actions_count].x = x;
+        (*actions_count)++;
       }
+    }
   }
 }
 
@@ -647,8 +670,10 @@ double evaluate_next_piece(const Board *board, PieceType next_type) {
 
   double max_score = -1e9;
   for (int i = 0; i < next_actions_count; ++i) {
-    SimulateResult sim = board_simulate(board, next_type, next_actions[i].x, next_actions[i].rotate);
-    if (sim.cleared == -1) continue;
+    SimulateResult sim = board_simulate(board, next_type, next_actions[i].x,
+                                        next_actions[i].rotate);
+    if (sim.cleared == -1)
+      continue;
 
     double score = 0;
     for (int j = 0; j < FEATURES; ++j) {
@@ -661,25 +686,63 @@ double evaluate_next_piece(const Board *board, PieceType next_type) {
   return (max_score == -1e9) ? 0 : max_score;
 }
 
-Action find_best_action(const Board *board, PieceType current, PieceType next_type, const Action actions[], int actions_count) {
-  double max_total = -1e9;
-  Action best = {0, 0};
+Action find_best_action(const Board *board, PieceType current,
+                        PieceType next_type, const Action actions[],
+                        int actions_count) {
+
+  typedef struct {
+    Action action;
+    double score;
+    SimulateResult sim;
+  } ScoredAction;
+
+  ScoredAction scored_actions[actions_count];
+  int valid_actions = 0;
 
   for (int i = 0; i < actions_count; ++i) {
-    SimulateResult sim = board_simulate(board, current, actions[i].x, actions[i].rotate);
-    if (sim.cleared == -1) continue;
+    SimulateResult sim =
+        board_simulate(board, current, actions[i].x, actions[i].rotate);
+    if (sim.cleared == -1)
+      continue;
 
     double current_score = 0;
     for (int j = 0; j < FEATURES; ++j) {
       current_score += sim.features[j] * WEIGHTS[j];
     }
 
-    double next_score = evaluate_next_piece(&sim.new_board, next_type);
-    double total = current_score + next_score;
+    scored_actions[valid_actions].action = actions[i];
+    scored_actions[valid_actions].score = current_score;
+    scored_actions[valid_actions].sim = sim;
+    valid_actions++;
+  }
 
-    if (total > max_total || (total == max_total && actions[i].x < best.x)) {
+  if (valid_actions == 0) {
+    return actions[0];
+  }
+
+  for (int i = 0; i < valid_actions - 1; ++i) {
+    for (int j = i + 1; j < valid_actions; ++j) {
+      if (scored_actions[i].score < scored_actions[j].score) {
+        ScoredAction temp = scored_actions[i];
+        scored_actions[i] = scored_actions[j];
+        scored_actions[j] = temp;
+      }
+    }
+  }
+
+  double max_total = -1e9;
+  Action best = scored_actions[0].action;
+
+  int n = (valid_actions < TOP_N) ? valid_actions : TOP_N;
+  for (int i = 0; i < n; ++i) {
+    double next_score =
+        evaluate_next_piece(&scored_actions[i].sim.new_board, next_type);
+    double total = scored_actions[i].score + next_score;
+
+    if (total > max_total ||
+        (total == max_total && scored_actions[i].action.x < best.x)) {
       max_total = total;
-      best = actions[i];
+      best = scored_actions[i].action;
     }
   }
 
@@ -687,7 +750,8 @@ Action find_best_action(const Board *board, PieceType current, PieceType next_ty
 }
 
 void process_next_piece(Board *board, char next_pieces[], int *count) {
-  if (*count < 2) return;
+  if (*count < 2)
+    return;
 
   PieceType current = char_to_piece_type(next_pieces[0]);
   PieceType next = char_to_piece_type(next_pieces[1]);
@@ -696,7 +760,8 @@ void process_next_piece(Board *board, char next_pieces[], int *count) {
   int actions_count;
   get_possible_actions(board, current, actions, &actions_count);
 
-  if (actions_count == 0) exit(0);
+  if (actions_count == 0)
+    exit(0);
 
   Action best = find_best_action(board, current, next, actions, actions_count);
   board_apply(board, current, best.x, best.rotate);
@@ -712,28 +777,29 @@ void process_next_piece(Board *board, char next_pieces[], int *count) {
 
 void read_next_piece(char next_pieces[], int *next_pieces_count) {
   char next;
-  if (scanf(" %c", &next) != 1) return;
-  
+  if (scanf(" %c", &next) != 1)
+    return;
+
   if (next == 'X' || next == 'E') {
-      exit(0);
+    exit(0);
   }
-  
+
   next_pieces[(*next_pieces_count)++] = next;
 }
 
 int main() {
   Board board;
   board_init(&board);
-  
+
   char next_pieces[100];
   int next_pieces_count = 0;
-  
+
   read_initial_pieces(next_pieces, &next_pieces_count);
-  
+
   while (1) {
-      process_next_piece(&board, next_pieces, &next_pieces_count);
-      read_next_piece(next_pieces, &next_pieces_count);
+    process_next_piece(&board, next_pieces, &next_pieces_count);
+    read_next_piece(next_pieces, &next_pieces_count);
   }
-  
+
   return 0;
 }
