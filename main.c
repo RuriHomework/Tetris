@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+// --- 常量部分
+
 #define FEATURES 13
 #define BOARD_HEIGHT 15
 #define BOARD_WIDTH 10
@@ -15,6 +17,8 @@ const double WEIGHTS[] = {-1464772.166456, 2535297.130013,  -2638462.645342,
                           -3233372.471683};
 
 typedef enum { I, T, O, J, L, S, Z } PieceType;
+
+// --- 棋盘部分
 
 typedef struct {
   int shape[4][4];
@@ -487,136 +491,154 @@ void board_draw(const Board *board) {
   printf("------------\n");
 }
 
+// --- 主函数部分
+
+typedef struct {
+  int rotate;
+  int x;
+} Action;
+
+void read_initial_pieces(char next_pieces[], int *next_pieces_count) {
+  char s0, s1;
+  scanf(" %c %c", &s0, &s1);
+  next_pieces[(*next_pieces_count)++] = s0;
+  next_pieces[(*next_pieces_count)++] = s1;
+}
+
+PieceType char_to_piece_type(char c) {
+  switch (c) {
+      case 'I': return I;
+      case 'T': return T;
+      case 'O': return O;
+      case 'J': return J;
+      case 'L': return L;
+      case 'S': return S;
+      case 'Z': return Z;
+      default: exit(0);
+  }
+}
+
+bool is_position_valid(const Board *board, const Piece *p, int x) {
+  for (int dx = 0; dx < p->width; dx++) {
+      int col = x + dx;
+      if (col >= BOARD_WIDTH) {
+          return false;
+      }
+  }
+  
+  int max_h = 0;
+  for (int dx = 0; dx < p->width; dx++) {
+      int col = x + dx;
+      int h = board_get_height(board, col);
+      max_h = (h > max_h) ? h : max_h;
+  }
+
+  for (int i = 0; i < p->height; i++) {
+      for (int j = 0; j < p->width; j++) {
+          if (p->shape[i][j]) {
+              int y = max_h + i;
+              if (y >= BOARD_HEIGHT) {
+                  return false;
+              }
+          }
+      }
+  }
+  return true;
+}
+
+void get_possible_actions(const Board *board, PieceType current, 
+                       Action actions[], int *actions_count) {
+  *actions_count = 0;
+  
+  for (int rotate = 0; rotate < 4; rotate++) {
+      const Piece *p = &ROTATIONS[current][rotate];
+      for (int x = 0; x <= BOARD_WIDTH - p->width; x++) {
+          if (is_position_valid(board, p, x)) {
+              actions[*actions_count].rotate = rotate;
+              actions[*actions_count].x = x;
+              (*actions_count)++;
+          }
+      }
+  }
+}
+
+Action find_best_action(const Board *board, PieceType current, 
+                      const Action actions[], int actions_count) {
+  double max_score = -1e9;
+  Action best_action = {0, 0};
+  
+  for (int i = 0; i < actions_count; i++) {
+      int rotate = actions[i].rotate;
+      int x = actions[i].x;
+      SimulateResult sim_result = board_simulate(board, current, x, rotate);
+      
+      if (sim_result.cleared == -1) continue;
+      
+      double score = 0;
+      for (int j = 0; j < FEATURES; j++) {
+          score += sim_result.features[j] * WEIGHTS[j];
+      }
+
+      if (score > max_score || (score == max_score && x < best_action.x)) {
+          max_score = score;
+          best_action.rotate = rotate;
+          best_action.x = x;
+      }
+  }
+  
+  return best_action;
+}
+
+void process_next_piece(Board *board, char next_pieces[], int *next_pieces_count) {
+  if (*next_pieces_count == 0) return;
+  
+  char current_char = next_pieces[0];
+  for (int i = 0; i < *next_pieces_count - 1; i++) {
+      next_pieces[i] = next_pieces[i + 1];
+  }
+  (*next_pieces_count)--;
+  
+  PieceType current = char_to_piece_type(current_char);
+  
+  Action possible_actions[100];
+  int possible_actions_count;
+  get_possible_actions(board, current, possible_actions, &possible_actions_count);
+  
+  if (possible_actions_count == 0) {
+      exit(0);
+  }
+  
+  Action best_action = find_best_action(board, current, possible_actions, possible_actions_count);
+  board_apply(board, current, best_action.x, best_action.rotate);
+  
+  printf("%d %d\n%d\n", best_action.rotate * 90, best_action.x, board_get_score(board));
+  fflush(stdout);
+}
+
+void read_next_piece(char next_pieces[], int *next_pieces_count) {
+  char next;
+  if (scanf(" %c", &next) != 1) return;
+  
+  if (next == 'X' || next == 'E') {
+      exit(0);
+  }
+  
+  next_pieces[(*next_pieces_count)++] = next;
+}
+
 int main() {
   Board board;
   board_init(&board);
-
+  
   char next_pieces[100];
   int next_pieces_count = 0;
-  char s0, s1;
-  scanf(" %c %c", &s0, &s1);
-  next_pieces[next_pieces_count++] = s0;
-  next_pieces[next_pieces_count++] = s1;
-
+  
+  read_initial_pieces(next_pieces, &next_pieces_count);
+  
   while (1) {
-    if (next_pieces_count == 0)
-      break;
-    char current_char = next_pieces[0];
-    for (int i = 0; i < next_pieces_count - 1; i++) {
-      next_pieces[i] = next_pieces[i + 1];
-    }
-    next_pieces_count--;
-
-    PieceType current;
-    switch (current_char) {
-    case 'I':
-      current = I;
-      break;
-    case 'T':
-      current = T;
-      break;
-    case 'O':
-      current = O;
-      break;
-    case 'J':
-      current = J;
-      break;
-    case 'L':
-      current = L;
-      break;
-    case 'S':
-      current = S;
-      break;
-    case 'Z':
-      current = Z;
-      break;
-    default:
-      exit(0);
-    }
-
-    int possible_actions_count = 0;
-    int possible_rotates[100], possible_xs[100];
-
-    for (int rotate = 0; rotate < 4; rotate++) {
-      const Piece *p = &ROTATIONS[current][rotate];
-      for (int x = 0; x <= BOARD_WIDTH - p->width; x++) {
-        bool valid = true;
-        int max_h = 0;
-        for (int dx = 0; dx < p->width; dx++) {
-          int col = x + dx;
-          if (col >= BOARD_WIDTH) {
-            valid = false;
-            break;
-          }
-          max_h = (board_get_height(&board, col) > max_h)
-                      ? board_get_height(&board, col)
-                      : max_h;
-        }
-        if (!valid)
-          continue;
-
-        for (int i = 0; i < p->height; i++) {
-          for (int j = 0; j < p->width; j++) {
-            if (p->shape[i][j]) {
-              int y = max_h + i;
-              if (y >= BOARD_HEIGHT) {
-                valid = false;
-                break;
-              }
-            }
-          }
-          if (!valid)
-            break;
-        }
-        if (valid) {
-          possible_rotates[possible_actions_count] = rotate;
-          possible_xs[possible_actions_count] = x;
-          possible_actions_count++;
-        }
-      }
-    }
-
-    if (possible_actions_count == 0) {
-      // printf("0 0\n%d\n", board_get_score(&board));
-      exit(0);
-    }
-
-    double max_score = -1e9;
-    int best_rotate = 0, best_x = 0;
-    for (int i = 0; i < possible_actions_count; i++) {
-      int rotate = possible_rotates[i];
-      int x = possible_xs[i];
-      SimulateResult sim_result = board_simulate(&board, current, x, rotate);
-      int cleared = sim_result.cleared;
-      if (cleared == -1)
-        continue;
-
-      double score = 0;
-      for (int j = 0; j < FEATURES; j++) {
-        score += sim_result.features[j] * WEIGHTS[j];
-      }
-
-      if (score > max_score || (score == max_score && x < best_x)) {
-        max_score = score;
-        best_rotate = rotate;
-        best_x = x;
-      }
-    }
-
-    board_apply(&board, current, best_x, best_rotate);
-    printf("%d %d\n%d\n", best_rotate * 90, best_x, board_get_score(&board));
-    // board_draw(&board);
-    fflush(stdout);
-
-    char next;
-    if (scanf(" %c", &next) != 1)
-      break;
-    if (next == 'X')
-      break;
-    if (next == 'E')
-      exit(0);
-    next_pieces[next_pieces_count++] = next;
+      process_next_piece(&board, next_pieces, &next_pieces_count);
+      read_next_piece(next_pieces, &next_pieces_count);
   }
-
+  
   return 0;
 }
