@@ -128,24 +128,13 @@ typedef struct {
   double features[FEATURES];
 } SimulateResult;
 
-SimulateResult board_simulate(const Board *board, PieceType type, int x,
-                              int rotate) {
-  const Piece *p = &ROTATIONS[type][rotate];
-  bool temp_grid[BOARD_HEIGHT][BOARD_WIDTH];
-  memcpy(temp_grid, board->grid, sizeof(board->grid));
-  int temp_heights[BOARD_WIDTH];
-  memcpy(temp_heights, board->heights, sizeof(board->heights));
-
-  SimulateResult result;
-  result.cleared = -1;
-  memset(result.features, 0, sizeof(result.features));
-
+int get_required_y(const Board *board, const Piece *p, int x) {
   int required_y = 0;
   for (int dx = 0; dx < p->width; dx++) {
     int col = x + dx;
     if (col >= BOARD_WIDTH)
-      return result;
-    int h_col = temp_heights[col];
+      return -1;
+    int h_col = board->heights[col];
     int max_i_for_dx = 0;
     bool has_block = false;
     for (int i = 0; i < p->height; i++) {
@@ -161,40 +150,68 @@ SimulateResult board_simulate(const Board *board, PieceType type, int x,
       required_y = max_i_for_dx;
     }
   }
+  return required_y;
+}
 
-  int blocks_count = 0;
-  int blocks_y[4 * 4], blocks_col[4 * 4]; // 最多4*4个方块
+int get_max_h(const int *temp_heights,int start_x, int piece_weight) {
+  int max_h = 0;
+  for (int dx = 0; dx < piece_weight; dx++) {
+    int col = start_x + dx;
+    if (col >= BOARD_WIDTH)
+      return -1;
+    if (temp_heights[col] > max_h)
+      max_h = temp_heights[col];
+  }
+  return max_h;
+}
 
+int update_temp_board(int *blocks_count, int blocks_y[], int blocks_col[], bool temp_grid[BOARD_HEIGHT][BOARD_WIDTH], int *temp_heights, const Piece *p, int start_x, int required_y ) {
   for (int i = 0; i < p->height; i++) {
     for (int j = 0; j < p->width; j++) {
       if (p->shape[i][j]) {
         int y = required_y + i;
-        int col = x + j;
+        int col = start_x + j;
         if (y >= BOARD_HEIGHT || temp_grid[y][col]) {
-          return result;
+          return -1;
         }
-        blocks_y[blocks_count] = y;
-        blocks_col[blocks_count] = col;
-        blocks_count++;
+        blocks_y[*blocks_count] = y;
+        blocks_col[*blocks_count] = col;
+        (*blocks_count)++;
       }
     }
   }
 
-  int max_h = 0;
-  for (int dx = 0; dx < p->width; dx++) {
-    int col = x + dx;
-    if (col >= BOARD_WIDTH)
-      return result;
-    if (temp_heights[col] > max_h)
-      max_h = temp_heights[col];
-  }
-
-  for (int i = 0; i < blocks_count; i++) {
+  for (int i = 0; i < *blocks_count; i++) {
     int y = blocks_y[i];
     int col = blocks_col[i];
     temp_grid[y][col] = true;
     temp_heights[col] = (temp_heights[col] > y + 1) ? temp_heights[col] : y + 1;
   }
+  return 0;
+}
+
+SimulateResult board_simulate(const Board *board, PieceType type, int x,
+                              int rotate) {
+  const Piece *p = &ROTATIONS[type][rotate];
+  bool temp_grid[BOARD_HEIGHT][BOARD_WIDTH];
+  memcpy(temp_grid, board->grid, sizeof(board->grid));
+  int temp_heights[BOARD_WIDTH];
+  memcpy(temp_heights, board->heights, sizeof(board->heights));
+
+  SimulateResult result;
+  result.cleared = -1;
+  memset(result.features, 0, sizeof(result.features));
+
+  int required_y = get_required_y(board, p, x);
+  if (required_y == -1) return result;
+
+  int blocks_count = 0;
+  int blocks_y[4 * 4], blocks_col[4 * 4];
+  int res = update_temp_board(&blocks_count, blocks_y, blocks_col, temp_grid, temp_heights, p, x, required_y);
+  if (res == -1) return result;
+
+  int max_h = get_max_h(temp_heights, x, p->width);
+  if (max_h == -1) return result;
 
   int full_rows[BOARD_HEIGHT];
   int full_rows_count = 0;
@@ -632,7 +649,6 @@ int main() {
     printf("%d %d\n%d\n", best_rotate * 90, best_x, board_get_score(&board));
     // board_draw(&board);
     fflush(stdout);
-
 
     char next;
     if (scanf(" %c", &next) != 1)
