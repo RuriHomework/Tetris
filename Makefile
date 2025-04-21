@@ -1,32 +1,33 @@
-CXX = g++
-CXXFLAGS = -std=c++11 -O2 -Wall -pthread
+CXX := g++
+CC := gcc
+CXXFLAGS := -std=c++11 -O2 -Wall -pthread
+CFLAGS := -std=c99 -O2 -Wall -pthread
 
-BUILD_DIR = build
+BUILD_DIR := build
+TARGET_TRAIN := $(BUILD_DIR)/train
+TARGET_MAIN := $(BUILD_DIR)/main
 
-TARGET_TRAIN = $(BUILD_DIR)/train
-TARGET_MAIN = $(BUILD_DIR)/main
+SRC_TRAIN := train.cpp
+SRC_MAIN := main.c
 
-SRC_TRAIN = train.cpp
-SRC_MAIN = main.c
-
-all: $(BUILD_DIR) $(TARGET_TRAIN) $(TARGET_MAIN)
+all: $(TARGET_TRAIN) $(TARGET_MAIN)
 
 $(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)
+	@mkdir -p $@
 
 $(TARGET_TRAIN): $(SRC_TRAIN) | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -o $@ $^
+	$(CXX) $(CXXFLAGS) -o $@ $<
 
 $(TARGET_MAIN): $(SRC_MAIN) | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $<
 
 run-train: $(TARGET_TRAIN)
-	./$(TARGET_TRAIN)
+	@./$(TARGET_TRAIN)
 
 run: $(TARGET_MAIN)
-	./$(TARGET_MAIN)
+	@./$(TARGET_MAIN)
 
 clean:
-	rm -rf $(BUILD_DIR)
+	@rm -rf $(BUILD_DIR)
 
-.PHONY: all run-train run clean
+.PHONY: all build run-train run clean
