@@ -602,7 +602,7 @@ int main() {
     }
 
     if (possible_actions_count == 0) {
-      printf("0 0\n%d\n", board_get_score(&board));
+      // printf("0 0\n%d\n", board_get_score(&board));
       exit(0);
     }
 
@@ -628,11 +628,11 @@ int main() {
       }
     }
 
+    board_apply(&board, current, best_x, best_rotate);
     printf("%d %d\n%d\n", best_rotate * 90, best_x, board_get_score(&board));
-    board_draw(&board);
+    // board_draw(&board);
     fflush(stdout);
 
-    board_apply(&board, current, best_x, best_rotate);
 
     char next;
     if (scanf(" %c", &next) != 1)
