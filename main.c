@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 // --- 常量部分
 
@@ -561,12 +562,12 @@ typedef struct {
   int x;
 } Action;
 
-void read_initial_pieces(char next_pieces[], int *next_pieces_count) {
-  char s0, s1;
-  scanf(" %c %c", &s0, &s1);
-  next_pieces[(*next_pieces_count)++] = s0;
-  next_pieces[(*next_pieces_count)++] = s1;
-}
+// void read_initial_pieces(char next_pieces[], int *next_pieces_count) {
+//   char s0, s1;
+//   scanf("%c%c", &s0, &s1);
+//   next_pieces[(*next_pieces_count)++] = s0;
+//   next_pieces[(*next_pieces_count)++] = s1;
+// }
 
 PieceType char_to_piece_type(char c) {
   switch (c) {
@@ -722,7 +723,7 @@ Action find_best_action(const Board *board, PieceType current,
   return best;
 }
 
-void process_next_piece(Board *board, char next_pieces[], int *count) {
+void process_next_piece(Board *board, char next_pieces[], int *count, bool is_timeout) {
   if (*count < 2)
     return;
 
@@ -733,8 +734,17 @@ void process_next_piece(Board *board, char next_pieces[], int *count) {
   int actions_count;
   get_possible_actions(board, current, actions, &actions_count);
 
-  if (actions_count == 0)
-    exit(0);
+  if (actions_count == 0) {
+    printf("0 0\n%d\n", board->score);
+    fflush(stdout);
+    return;
+  }
+
+  if (is_timeout) {
+    printf("0 0\n%d\n", board->score);
+    fflush(stdout);
+    return;
+  }
 
   Action best = find_best_action(board, current, next, actions, actions_count);
   board_apply(board, current, best.x, best.rotate);
@@ -744,33 +754,41 @@ void process_next_piece(Board *board, char next_pieces[], int *count) {
   }
   (*count)--;
 
-  printf("%d %d\n%d\n", best.rotate * 90, best.x, board->score);
+  printf("%d %d\n%d\n", best.rotate, best.x, board->score);
   fflush(stdout);
+  return;
 }
 
 void read_next_piece(char next_pieces[], int *next_pieces_count) {
-  char next;
-  if (scanf(" %c", &next) != 1)
-    return;
-
-  if (next == 'X' || next == 'E') {
-    exit(0);
-  }
-
-  next_pieces[(*next_pieces_count)++] = next;
+    char next;
+    while (scanf("%c", &next) == 1) {
+        if (next == 'X' || next == 'E') {
+            exit(0);
+        }
+        if (next != '\n' && next != ' ' && next != '\t') {
+            next_pieces[(*next_pieces_count)++] = next;
+            return;
+        }
+    }
 }
 
 int main() {
+  clock_t start, finish;
+  double duration;
+  start = clock();
   Board board;
   board_init(&board);
 
   char next_pieces[100];
   int next_pieces_count = 0;
 
-  read_initial_pieces(next_pieces, &next_pieces_count);
-
+  read_next_piece(next_pieces, &next_pieces_count);
+  read_next_piece(next_pieces, &next_pieces_count);
   while (1) {
-    process_next_piece(&board, next_pieces, &next_pieces_count);
+    finish = clock();
+    duration = (double)(finish - start) / CLOCKS_PER_SEC;
+    bool is_timeout = duration >= 5;
+    process_next_piece(&board, next_pieces, &next_pieces_count, is_timeout);
     read_next_piece(next_pieces, &next_pieces_count);
   }
 
