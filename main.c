@@ -10,7 +10,7 @@
 #define FEATURES 13
 #define BOARD_HEIGHT 15
 #define BOARD_WIDTH 10
-#define TOP_N 7
+#define TOP_N 5
 
 const double WEIGHTS[] = {-1464772.166456, 2535297.130013,  -2638462.645342,
                           -372351.515440,  1782742.689903,  -1883234.918781,
@@ -29,86 +29,311 @@ typedef struct {
   int rightmost[4];
 } Piece;
 
+// clang-format off
 const Piece ROTATIONS[7][4] = {
-    // I型
-    {{{{1, 1, 1, 1}, {0}, {0}, {0}}, 4, 1, {0, 0, 0, 0}, {3, 0, 0, 0}},
-     {{{1}, {1}, {1}, {1}}, 1, 4, {0, 0, 0, 0}, {0, 0, 0, 0}},
-     {{{1, 1, 1, 1}, {0}, {0}, {0}}, 4, 1, {0, 0, 0, 0}, {3, 0, 0, 0}},
-     {{{1}, {1}, {1}, {1}}, 1, 4, {0, 0, 0, 0}, {0, 0, 0, 0}}},
-    // T型
-    {{{{0, 1, 0, 0}, {1, 1, 1, 0}, {0}, {0}}, 3, 2, {1, 0, 0, 0}, {1, 2, 0, 0}},
-     {{{1, 0, 0, 0}, {1, 1, 0, 0}, {1, 0, 0, 0}, {0}},
-      2,
-      3,
-      {0, 0, 0, 0},
-      {1, 0, 0, 0}},
-     {{{1, 1, 1, 0}, {0, 1, 0, 0}, {0}, {0}}, 3, 2, {0, 1, 0, 0}, {2, 1, 0, 0}},
-     {{{0, 1, 0, 0}, {1, 1, 0, 0}, {0, 1, 0, 0}, {0}},
-      2,
-      3,
-      {0, 0, 0, 0},
-      {1, 1, 0, 0}}},
-    // O型
-    {{{{1, 1, 0, 0}, {1, 1, 0, 0}, {0}, {0}}, 2, 2, {0, 0, 0, 0}, {1, 1, 0, 0}},
-     {{{1, 1, 0, 0}, {1, 1, 0, 0}, {0}, {0}}, 2, 2, {0, 0, 0, 0}, {1, 1, 0, 0}},
-     {{{1, 1, 0, 0}, {1, 1, 0, 0}, {0}, {0}}, 2, 2, {0, 0, 0, 0}, {1, 1, 0, 0}},
-     {{{1, 1, 0, 0}, {1, 1, 0, 0}, {0}, {0}},
-      2,
-      2,
-      {0, 0, 0, 0},
-      {1, 1, 0, 0}}},
-    // J型
-    {{{{1, 0, 0, 0}, {1, 1, 1, 0}, {0}, {0}}, 3, 2, {0, 0, 0, 0}, {2, 0, 0, 0}},
-     {{{1, 1, 0, 0}, {1, 0, 0, 0}, {1, 0, 0, 0}, {0}},
-      2,
-      3,
-      {0, 0, 0, 0},
-      {1, 0, 0, 0}},
-     {{{1, 1, 1, 0}, {0, 0, 1, 0}, {0}, {0}}, 3, 2, {0, 0, 0, 0}, {2, 0, 0, 0}},
-     {{{0, 1, 0, 0}, {0, 1, 0, 0}, {1, 1, 0, 0}, {0}},
-      2,
-      3,
-      {0, 0, 0, 0},
-      {1, 1, 0, 0}}},
-    // L型
-    {{{{0, 0, 1, 0}, {1, 1, 1, 0}, {0}, {0}}, 3, 2, {2, 0, 0, 0}, {2, 2, 0, 0}},
-     {{{1, 0, 0, 0}, {1, 0, 0, 0}, {1, 1, 0, 0}, {0}},
-      2,
-      3,
-      {0, 0, 0, 0},
-      {1, 1, 0, 0}},
-     {{{1, 1, 1, 0}, {1, 0, 0, 0}, {0}, {0}}, 3, 2, {0, 0, 0, 0}, {2, 0, 0, 0}},
-     {{{1, 1, 0, 0}, {0, 1, 0, 0}, {0, 1, 0, 0}, {0}},
-      2,
-      3,
-      {0, 0, 0, 0},
-      {1, 1, 0, 0}}},
-    // S型
-    {{{{0, 1, 1, 0}, {1, 1, 0, 0}, {0}, {0}}, 3, 2, {1, 0, 0, 0}, {2, 1, 0, 0}},
-     {{{1, 0, 0, 0}, {1, 1, 0, 0}, {0, 1, 0, 0}, {0}},
-      2,
-      3,
-      {0, 0, 0, 0},
-      {1, 1, 0, 0}},
-     {{{0, 1, 1, 0}, {1, 1, 0, 0}, {0}, {0}}, 3, 2, {1, 0, 0, 0}, {2, 1, 0, 0}},
-     {{{1, 0, 0, 0}, {1, 1, 0, 0}, {0, 1, 0, 0}, {0}},
-      2,
-      3,
-      {0, 0, 0, 0},
-      {1, 1, 0, 0}}},
-    // Z型
-    {{{{1, 1, 0, 0}, {0, 1, 1, 0}, {0}, {0}}, 3, 2, {0, 0, 0, 0}, {1, 2, 0, 0}},
-     {{{0, 1, 0, 0}, {1, 1, 0, 0}, {1, 0, 0, 0}, {0}},
-      2,
-      3,
-      {0, 0, 0, 0},
-      {1, 1, 0, 0}},
-     {{{1, 1, 0, 0}, {0, 1, 1, 0}, {0}, {0}}, 3, 2, {0, 0, 0, 0}, {1, 2, 0, 0}},
-     {{{0, 1, 0, 0}, {1, 1, 0, 0}, {1, 0, 0, 0}, {0}},
-      2,
-      3,
-      {0, 0, 0, 0},
-      {1, 1, 0, 0}}}};
+  // I
+  {
+      {
+          .shape = {{1, 1, 1, 1}, 
+                  {0, 0, 0, 0}, 
+                  {0, 0, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 4,
+          .height = 1,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {3, 0, 0, 0},
+      },
+      {
+          .shape = {{1, 0, 0, 0}, 
+                  {1, 0, 0, 0}, 
+                  {1, 0, 0, 0}, 
+                  {1, 0, 0, 0}},
+          .width = 1,
+          .height = 4,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {0, 0, 0, 0},
+      },
+      {
+          .shape = {{1, 1, 1, 1}, 
+                  {0, 0, 0, 0}, 
+                  {0, 0, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 4,
+          .height = 1,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {3, 0, 0, 0},
+      },
+      {
+          .shape = {{1, 0, 0, 0}, 
+                  {1, 0, 0, 0}, 
+                  {1, 0, 0, 0}, 
+                  {1, 0, 0, 0}},
+          .width = 1,
+          .height = 4,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {0, 0, 0, 0},
+      },
+  },
+  // T
+  {
+      {
+          .shape = {{1, 1, 1, 0}, 
+                  {0, 1, 0, 0}, 
+                  {0, 0, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 3,
+          .height = 2,
+          .leftmost = {0, 1, 0, 0},
+          .rightmost = {2, 1, 0, 0},
+      },
+      {
+          .shape = {{1, 0, 0, 0}, 
+                  {1, 1, 0, 0}, 
+                  {1, 0, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 2,
+          .height = 3,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {1, 0, 0, 0},
+      },
+      {
+          .shape = {{0, 1, 0, 0}, 
+                  {1, 1, 1, 0}, 
+                  {0, 0, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 3,
+          .height = 2,
+          .leftmost = {1, 0, 0, 0},
+          .rightmost = {1, 2, 0, 0},
+      },
+      {
+          .shape = {{0, 1, 0, 0}, 
+                  {1, 1, 0, 0}, 
+                  {0, 1, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 2,
+          .height = 3,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {1, 1, 0, 0},
+      },
+  },
+  // O
+  {
+      {
+          .shape = {{1, 1, 0, 0}, 
+                  {1, 1, 0, 0}, 
+                  {0, 0, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 2,
+          .height = 2,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {1, 1, 0, 0},
+      },
+      {
+          .shape = {{1, 1, 0, 0}, 
+                  {1, 1, 0, 0}, 
+                  {0, 0, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 2,
+          .height = 2,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {1, 1, 0, 0},
+      },
+      {
+          .shape = {{1, 1, 0, 0}, 
+                  {1, 1, 0, 0}, 
+                  {0, 0, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 2,
+          .height = 2,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {1, 1, 0, 0},
+      },
+      {
+          .shape = {{1, 1, 0, 0}, 
+                  {1, 1, 0, 0}, 
+                  {0, 0, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 2,
+          .height = 2,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {1, 1, 0, 0},
+      },
+  },
+  // J
+  {
+      {
+          .shape = {{1, 1, 1, 0}, 
+                  {1, 0, 0, 0}, 
+                  {0, 0, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 3,
+          .height = 2,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {2, 0, 0, 0},
+      },
+      {
+          .shape = {{1, 0, 0, 0}, 
+                  {1, 0, 0, 0}, 
+                  {1, 1, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 2,
+          .height = 3,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {1, 1, 0, 0},
+      },
+      {
+          .shape = {{0, 0, 1, 0}, 
+                  {1, 1, 1, 0}, 
+                  {0, 0, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 3,
+          .height = 2,
+          .leftmost = {2, 0, 0, 0},
+          .rightmost = {2, 2, 0, 0},
+      },
+      {
+          .shape = {{1, 1, 0, 0}, 
+                  {0, 1, 0, 0}, 
+                  {0, 1, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 2,
+          .height = 3,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {1, 1, 0, 0},
+      },
+  },
+  // L
+  {
+      {
+          .shape = {{1, 1, 1, 0}, 
+                  {0, 0, 1, 0}, 
+                  {0, 0, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 3,
+          .height = 2,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {2, 0, 0, 0},
+      },
+      {
+          .shape = {{1, 1, 0, 0}, 
+                  {1, 0, 0, 0}, 
+                  {1, 0, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 2,
+          .height = 3,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {1, 0, 0, 0},
+      },
+      {
+          .shape = {{1, 0, 0, 0}, 
+                  {1, 1, 1, 0}, 
+                  {0, 0, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 3,
+          .height = 2,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {2, 0, 0, 0},
+      },
+      {
+          .shape = {{0, 1, 0, 0}, 
+                  {0, 1, 0, 0}, 
+                  {1, 1, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 2,
+          .height = 3,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {1, 1, 0, 0},
+      },
+  },
+  // S
+  {
+      {
+          .shape = {{1, 1, 0, 0}, 
+                  {0, 1, 1, 0}, 
+                  {0, 0, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 3,
+          .height = 2,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {1, 2, 0, 0},
+      },
+      {
+          .shape = {{0, 1, 0, 0}, 
+                  {1, 1, 0, 0}, 
+                  {1, 0, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 2,
+          .height = 3,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {1, 1, 0, 0},
+      },
+      {
+          .shape = {{1, 1, 0, 0}, 
+                  {0, 1, 1, 0}, 
+                  {0, 0, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 3,
+          .height = 2,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {1, 2, 0, 0},
+      },
+      {
+          .shape = {{0, 1, 0, 0}, 
+                  {1, 1, 0, 0}, 
+                  {1, 0, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 2,
+          .height = 3,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {1, 1, 0, 0},
+      },
+  },
+  // Z
+  {
+      {
+          .shape = {{0, 1, 1, 0}, 
+                  {1, 1, 0, 0}, 
+                  {0, 0, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 3,
+          .height = 2,
+          .leftmost = {1, 0, 0, 0},
+          .rightmost = {2, 1, 0, 0},
+      },
+      {
+          .shape = {{1, 0, 0, 0}, 
+                  {1, 1, 0, 0}, 
+                  {0, 1, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 2,
+          .height = 3,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {0, 1, 0, 0},
+      },
+      {
+          .shape = {{0, 1, 1, 0}, 
+                  {1, 1, 0, 0}, 
+                  {0, 0, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 3,
+          .height = 2,
+          .leftmost = {1, 0, 0, 0},
+          .rightmost = {2, 1, 0, 0},
+      },
+      {
+          .shape = {{1, 0, 0, 0}, 
+                  {1, 1, 0, 0}, 
+                  {0, 1, 0, 0}, 
+                  {0, 0, 0, 0}},
+          .width = 2,
+          .height = 3,
+          .leftmost = {0, 0, 0, 0},
+          .rightmost = {0, 1, 0, 0},
+      },
+  },
+};
+// clang-format on
 
 typedef struct {
   bool grid[BOARD_HEIGHT][BOARD_WIDTH];
@@ -728,7 +953,8 @@ Action find_best_action(const Board *board, PieceType current,
   return best;
 }
 
-void process_next_piece(Board *board, char next_pieces[], int *count, bool is_timeout) {
+void process_next_piece(Board *board, char next_pieces[], int *count,
+                        bool is_timeout) {
   if (*count < 2)
     return;
 
@@ -739,7 +965,7 @@ void process_next_piece(Board *board, char next_pieces[], int *count, bool is_ti
   int actions_count;
   get_possible_actions(board, current, actions, &actions_count);
 
-  if (actions_count == 0 || is_timeout) {
+  if (actions_count == 0) {
     printf("0 0\n%d\n", board->score);
     fflush(stdout);
     for (int i = 0; i < *count - 1; ++i) {
@@ -752,8 +978,15 @@ void process_next_piece(Board *board, char next_pieces[], int *count, bool is_ti
     return;
   }
 
-  Action best = find_best_action(board, current, next, actions, actions_count);
-  board_apply(board, current, best.x, best.rotate);
+  Action best;
+  if (is_timeout) {
+    best.rotate = 0;
+    best.x = 0;
+    board_apply(board, current, best.x, best.rotate);
+  } else {
+    best = find_best_action(board, current, next, actions, actions_count);
+    board_apply(board, current, best.x, best.rotate);
+  }
 
   for (int i = 0; i < *count - 1; ++i) {
     next_pieces[i] = next_pieces[i + 1];
@@ -769,16 +1002,20 @@ void process_next_piece(Board *board, char next_pieces[], int *count, bool is_ti
 }
 
 void read_next_piece(char next_pieces[], int *next_pieces_count) {
-    char next;
-    while (scanf("%c", &next) == 1) {
-        if (next == 'E') {
-            exit(0);
-        }
-        if (next != '\n' && next != ' ' && next != '\t') {
-            next_pieces[(*next_pieces_count)++] = next;
-            return;
-        }
+  char next;
+  while (1) {
+    fflush(stdout);
+    if (scanf("%c", &next) != 1) {
+      exit(0);
     }
+    if (next == 'E') {
+      exit(0);
+    }
+    if (next != '\n' && next != ' ' && next != '\t') {
+      next_pieces[(*next_pieces_count)++] = next;
+      return;
+    }
+  }
 }
 
 int main() {
@@ -790,13 +1027,13 @@ int main() {
 
   char next_pieces[100];
   int next_pieces_count = 0;
-
+  fflush(stdout);
   read_next_piece(next_pieces, &next_pieces_count);
   read_next_piece(next_pieces, &next_pieces_count);
   while (1) {
     finish = clock();
     duration = (double)(finish - start) / CLOCKS_PER_SEC;
-    bool is_timeout = duration >= 8;
+    bool is_timeout = duration >= 9;
     process_next_piece(&board, next_pieces, &next_pieces_count, is_timeout);
     read_next_piece(next_pieces, &next_pieces_count);
   }
