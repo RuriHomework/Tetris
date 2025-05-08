@@ -18,7 +18,7 @@ const double WEIGHTS[] = {-1464772.166456, 2535297.130013,  -2638462.645342,
                           3610431.536749,  -3355542.370633, -1120426.582938,
                           -3233372.471683};
 
-typedef enum { I, T, O, J, L, S, Z } PieceType;
+typedef enum { I, T, O, J, L, S, Z, END } PieceType;
 
 // --- 棋盘部分
 
@@ -540,20 +540,20 @@ void board_apply(Board *board, PieceType type, int x, int rotate) {
 
 int board_get_score(const Board *board) { return board->score; }
 
-void board_draw(const Board *board) {
-  system("clear"); // 清屏（Linux/Unix系统）
-  // system("cls"); // Windows系统用此行替代
+// void board_draw(const Board *board) {
+//   system("clear"); // 清屏（Linux/Unix系统）
+//   // system("cls"); // Windows系统用此行替代
 
-  printf("Score: %d\n", board->score);
-  for (int y = BOARD_HEIGHT - 1; y >= 0; --y) {
-    printf("|");
-    for (int x = 0; x < BOARD_WIDTH; ++x) {
-      printf("%s", board->grid[y][x] ? "■" : " ");
-    }
-    printf("|\n");
-  }
-  printf("------------\n");
-}
+//   printf("Score: %d\n", board->score);
+//   for (int y = BOARD_HEIGHT - 1; y >= 0; --y) {
+//     printf("|");
+//     for (int x = 0; x < BOARD_WIDTH; ++x) {
+//       printf("%s", board->grid[y][x] ? "■" : " ");
+//     }
+//     printf("|\n");
+//   }
+//   printf("------------\n");
+// }
 
 // --- 主函数部分
 
@@ -585,8 +585,10 @@ PieceType char_to_piece_type(char c) {
     return S;
   case 'Z':
     return Z;
+  case 'X':
+    return END;
   default:
-    exit(0);
+    return END;
   }
 }
 
@@ -708,6 +710,9 @@ Action find_best_action(const Board *board, PieceType current,
   Action best = scored_actions[0].action;
 
   int n = (valid_actions < TOP_N) ? valid_actions : TOP_N;
+  if (next_type == END) {
+    return best;
+  }
   for (int i = 0; i < n; ++i) {
     double next_score =
         evaluate_next_piece(&scored_actions[i].sim.new_board, next_type);
@@ -734,15 +739,16 @@ void process_next_piece(Board *board, char next_pieces[], int *count, bool is_ti
   int actions_count;
   get_possible_actions(board, current, actions, &actions_count);
 
-  if (actions_count == 0) {
+  if (actions_count == 0 || is_timeout) {
     printf("0 0\n%d\n", board->score);
     fflush(stdout);
-    return;
-  }
-
-  if (is_timeout) {
-    printf("0 0\n%d\n", board->score);
-    fflush(stdout);
+    for (int i = 0; i < *count - 1; ++i) {
+      next_pieces[i] = next_pieces[i + 1];
+    }
+    (*count)--;
+    if (current == END || next == END) {
+      exit(0);
+    }
     return;
   }
 
@@ -756,13 +762,16 @@ void process_next_piece(Board *board, char next_pieces[], int *count, bool is_ti
 
   printf("%d %d\n%d\n", best.rotate, best.x, board->score);
   fflush(stdout);
+  if (current == END || next == END) {
+    exit(0);
+  }
   return;
 }
 
 void read_next_piece(char next_pieces[], int *next_pieces_count) {
     char next;
     while (scanf("%c", &next) == 1) {
-        if (next == 'X' || next == 'E') {
+        if (next == 'E') {
             exit(0);
         }
         if (next != '\n' && next != ' ' && next != '\t') {
@@ -787,7 +796,7 @@ int main() {
   while (1) {
     finish = clock();
     duration = (double)(finish - start) / CLOCKS_PER_SEC;
-    bool is_timeout = duration >= 5;
+    bool is_timeout = duration >= 8;
     process_next_piece(&board, next_pieces, &next_pieces_count, is_timeout);
     read_next_piece(next_pieces, &next_pieces_count);
   }
